@@ -791,7 +791,7 @@ class HoldenRowlandCalculator:
                 do_another = False
                 
     def __init__(self):
-        self._OPERATORS = set(["*","/", "+", "-", "^", "%"])
+        pass
 
 calc = HoldenRowlandCalculator()
 calc.main()
