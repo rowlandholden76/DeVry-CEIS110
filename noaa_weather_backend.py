@@ -208,7 +208,7 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
 
         return weather
 
-    def collect_and_print_data(self, weather_data: Dict[str, Any], zip_code: int) -> tuple[int, list, list, list]:
+    def collect_and_print_data(self, weather_data: Iterable[Dict[str, Any]], zip_code: int) -> tuple[int, list, list, list]:
         """Collects the data to the two lists, temp_list and humidity_list. Gets the number of cloudy days.
             and converts the temps in the raw data to F
             
@@ -294,8 +294,8 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
         temp_rec_removed = start_temp_len - end_temp_len
 
         print() # Blank line before showing how many records were removed
-        print(f"Removed {temp_rec_removed} None temperature values")
-        print(f"Removed {Hum_rec_removed} None humidity values")
+        print(f"Removed {temp_rec_removed} temperature values")
+        print(f"Removed {Hum_rec_removed} humidity values")
 
         return temp_list, humidity_list
 
@@ -430,7 +430,7 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
         high_humidity = max(humidity_list)
 
         print(f"The average humidity was: {round(ave_humidity, 1)}%")
-        print(f"The lowest humidity was: {round(low_humidity), 1} %")
+        print(f"The lowest humidity was: {round(low_humidity, 1)} %")
         print(f"The highest humidity was: {round(high_humidity, 1)}%")
 
     def calculate_and_print_statistics(self, temp_list: list, humidity_list: list) -> None:
