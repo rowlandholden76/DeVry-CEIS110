@@ -36,6 +36,7 @@ Note: The NOAA API returns all available observations in the requested time wind
 """
 
 from noaa_sdk import noaa
+from collections import defaultdict
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from typing import Dict, Any, Iterable
@@ -99,25 +100,29 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
             print("Check your internet connection or try again later.")
             sys.exit(1)
 
-    def generate_lists(self, weather: Dict[str, Any], temp_list: list, humidity_list: list) -> tuple[list, list]:
-        """Generates two lists - temp_list to hold temps and humidity_list to hold relative humidity
-            these lists are used for the statistics that are printed
+    # Leave this commented out until sure it is not needed. I originally had this function to generate the 
+    # temp and humidity lists but I found it easier to do it in the collect_and_print_data function because we 
+    # need to track timestamps for the plots and we only want to track timestamps that have valid data for the plots, 
+    # so it is easier to do it in the same place where we are generating the lists for the plots.
+    # def generate_lists(self, weather: Dict[str, Any], temp_list: list, humidity_list: list) -> tuple[list, list]:
+    #     """Generates two lists - temp_list to hold temps and humidity_list to hold relative humidity
+    #         these lists are used for the statistics that are printed
             
-            Args:
-                weather: the raw data record to work with
-                temp_list: the list of temperatures
-                humidity_list: the list of relative humidity percentages
+    #         Args:
+    #             weather: the raw data record to work with
+    #             temp_list: the list of temperatures
+    #             humidity_list: the list of relative humidity percentages
             
-            Returns:
-                tuple[list, list]: returns the two lists with the new data appended
+    #         Returns:
+    #             tuple[list, list]: returns the two lists with the new data appended
             
-            Examples:
-                >>> temp_list, humidity_list = self.generate_lists(weather, temp_list, humidity_list)
-            """
-        temp_list.append(weather["temperature"]["value"])
-        humidity_list.append(weather["relativeHumidity"]["value"])
+    #         Examples:
+    #             >>> temp_list, humidity_list = self.generate_lists(weather, temp_list, humidity_list)
+    #         """
+    #     temp_list.append(weather["temperature"]["value"])
+    #     humidity_list.append(weather["relativeHumidity"]["value"])
 
-        return temp_list, humidity_list
+    #     return temp_list, humidity_list
 
     def print_data(self, weather: Dict[str, Any]) -> None:
         """prints the current raw records time stamp, temperature, relative humidity and description(cloudy, clear, rainy etc.)
@@ -208,7 +213,7 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
 
         return weather
 
-    def collect_and_print_data(self, weather_data: Iterable[Dict[str, Any]], zip_code: int) -> tuple[int, list, list, list]:
+    def collect_and_print_data(self, weather_data: Iterable[Dict[str, Any]], zip_code: str) -> tuple[int, list, list, defaultdict]:
         """Collects the data to the two lists, temp_list and humidity_list. Gets the number of cloudy days.
             and converts the temps in the raw data to F
             
@@ -217,7 +222,7 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
                 zip_code: Zip code that the collected data represents
             
             Returns:
-                tuple[int, list, list, list]: the two lists that were generated
+                tuple[int, list, list, defaultdict]: the number of cloudy days, temp_list, humidity_list, and timestamps_for_plots
 
             Examples:
                 >>> weather = convert_temp_to_F(weather)
@@ -226,15 +231,25 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
         cloudy_days_func = self.get_cloudy_days()
         temp_list = []
         humidity_list = []
-        timestamps_for_plots = []
+        # We need to track timestamps for the plots, but we only want to track the 
+        # timestamps that have valid data for the plot, so we will use a dict of lists to track them separately.
+        timestamps_for_plots = defaultdict(list, {"temp": [], "humidity": []})
 
         # Print the weather data and populate the lists for temperature and humidity
         for weather in weather_data:
             weather = self.convert_temp_to_F(weather) # Convert temp to F
-            timestamps_for_plots.append(weather["timestamp"])
                
-            temp_list, humidity_list = self.generate_lists(weather, temp_list, humidity_list)
+            # Leave this line commented out until sure it is not needed. 
+            #temp_list, humidity_list = self.generate_lists(weather, temp_list, humidity_list)
 
+            if weather["temperature"]["value"] != None:
+                timestamps_for_plots["temp"].append(weather["timestamp"]) # We only want to add timestamps that have valid temp data for plotting
+                temp_list.append(weather["temperature"]["value"]) # We need to append the temp value here as well because we are filtering out None values in the clean_data function, so we need to make sure the lists are the same length as the timestamps for plotting. We could do this in the clean_data function but it is easier to do it here.
+
+            if weather["relativeHumidity"]["value"] != None:
+                timestamps_for_plots["humidity"].append(weather["timestamp"]) # We only want to add timestamps that have valid humidity data for plotting
+                humidity_list.append(weather["relativeHumidity"]["value"]) # We need to append the humidity value here as well because we are filtering out None values in the clean_data function, so we need to make sure the lists are the same length as the timestamps for plotting. We could do this in the clean_data function but it is easier to do it here.
+                
             cloudy_days = cloudy_days_func(weather, cloudy_days) # This is a closure function called get_cloudy_days
             
             self.print_data(weather)
@@ -269,35 +284,40 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
 
         return temp_list, humidity_list,timestamps_for_plots
 
-    def clean_data(self, temp_list: list, humidity_list: list) -> tuple[list, list]:
-        """Cleaning the data by getting rid of any "None" values in the raw data. This will ensure accruate plotting later
+    # leave this commented out until sure it is not needed. I originally had this function to 
+    # clean the data but I found it easier to do it in the collect_and_print_data function because 
+    # we need to track timestamps for the plots and we only want to track timestamps that have valid 
+    # data for the plots, so it is easier to do it in the same place where we are generating the 
+    # lists for the plots.
+    # def clean_data(self, temp_list: list, humidity_list: list) -> tuple[list, list]:
+    #     """Cleaning the data by getting rid of any "None" values in the raw data. This will ensure accruate plotting later
             
-            Args:
-                temp_list: temperatures that were in the raw data
-                humidity_list: humidity values that were in the raw data
+    #         Args:
+    #             temp_list: temperatures that were in the raw data
+    #             humidity_list: humidity values that were in the raw data
             
-            Returns:
-                tuple[list, list]: the two lists that were filtered
+    #         Returns:
+    #             tuple[list, list]: the two lists that were filtered
 
-            Examples:
-                >>> temp_list, humidity_list = clean_data(temp_list, humidity_list)
-            """
-        start_humid_len = len(humidity_list)
-        start_temp_len = len(temp_list)
+    #         Examples:
+    #             >>> temp_list, humidity_list = clean_data(temp_list, humidity_list)
+    #         """
+    #     start_humid_len = len(humidity_list)
+    #     start_temp_len = len(temp_list)
 
-        humidity_list = list(filter(None, humidity_list))
-        temp_list = list(filter(None, temp_list))
-        end_humid_len = len(humidity_list)
-        end_temp_len = len(temp_list)
+    #     humidity_list = list(filter(None, humidity_list))
+    #     temp_list = list(filter(None, temp_list))
+    #     end_humid_len = len(humidity_list)
+    #     end_temp_len = len(temp_list)
 
-        Hum_rec_removed = start_humid_len - end_humid_len
-        temp_rec_removed = start_temp_len - end_temp_len
+    #     Hum_rec_removed = start_humid_len - end_humid_len
+    #     temp_rec_removed = start_temp_len - end_temp_len
 
-        print() # Blank line before showing how many records were removed
-        print(f"Removed {temp_rec_removed} temperature values")
-        print(f"Removed {Hum_rec_removed} humidity values")
+    #     print() # Blank line before showing how many records were removed
+    #     print(f"Removed {temp_rec_removed} temperature values")
+    #     print(f"Removed {Hum_rec_removed} humidity values")
 
-        return temp_list, humidity_list
+    #     return temp_list, humidity_list
 
     def create_plots(self, temp_list: list, humidity_list: list, timestamps_for_plots: list) -> None:
         """Calls functions to create a standard, box and histogram plot
@@ -331,11 +351,15 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
                 >>> create_standard(temp_list, humidity_list)
             """
         # Convert string timestamps to datetime objects for better plotting
-        dt_timestamps = [datetime.datetime.fromisoformat(ts.replace('Z', '+00:00')) for ts in timestamps_for_plots]
+        for i in range(len(timestamps_for_plots["temp"])):
+            timestamps_for_plots["temp"][i] = datetime.datetime.fromisoformat(timestamps_for_plots["temp"][i].replace('Z', '+00:00'))
+
+        for i in range(len(timestamps_for_plots["humidity"])):
+            timestamps_for_plots["humidity"][i] = datetime.datetime.fromisoformat(timestamps_for_plots["humidity"][i].replace('Z', '+00:00'))
 
         plt.figure(figsize=(14, 7))  # Wider figure for time axis
-        plt.plot(dt_timestamps, temp_list, label="Temperature (°F)", color="red", linewidth=1.5)
-        plt.plot(dt_timestamps, humidity_list, label="Humidity (%)", color="blue", linewidth=1.5)
+        plt.plot(timestamps_for_plots["temp"], temp_list, label="Temperature (°F)", color="red", linewidth=1.5)
+        plt.plot(timestamps_for_plots["humidity"], humidity_list, label="Humidity (%)", color="blue", linewidth=1.5)
         
         plt.legend(loc="upper right")
         plt.title("Temperature and Humidity Over Time (ZIP 98204)")
@@ -486,7 +510,12 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
             """
         self.print_student_name()
         temp_list, humidity_list, timestamps_for_plots = self.init_weather_data()
-        temp_list, humidity_list = self.clean_data(temp_list, humidity_list)
+        #leave this commented out until sure it is not needed. I originally had this function to 
+        # clean the data but I found it easier to do it in the collect_and_print_data function because we
+        # need to track timestamps for the plots and we only want to track timestamps that have valid
+        # data for the plots, so it is easier to do it in the same place where we are generating the
+        # lists for the plots.
+        #temp_list, humidity_list = self.clean_data(temp_list, humidity_list)
         self.create_plots(temp_list, humidity_list, timestamps_for_plots)
         self.calculate_and_print_statistics(temp_list, humidity_list)
     
