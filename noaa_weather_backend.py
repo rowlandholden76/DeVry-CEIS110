@@ -59,8 +59,8 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
                 is the zip code. Need this so we can print the valid records processed message. 
             
             Examples:
-                >>> raw_data = self.get_noaa_data()
-                >>> weather_data = self.get_noaa_data()
+                >>> raw_data, zip_code = self.get_noaa_data()
+                >>> weather_data, zip_code = self.get_noaa_data()
             """
         
         # API likes a start date and end date - calc those here. 
@@ -161,7 +161,7 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
         return new_date
 
     def get_cloudy_days(self) -> int:
-        """a wrapper function for Tracking days. need this o make processed dates persistent across calls so it will
+        """a closure function for Tracking days. need this to make processed dates persistent across calls so it will
             remember the dates it has already in the list. I find how this works to be increadable. 
             
             Args:
@@ -196,7 +196,7 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
 
     def convert_temp_to_F(self, weather: Dict[str, Any]) -> Dict[str, Any]:
         """convert C to F in the raw data so when it prints it is in F
-            NOTE: This works directly with the raw data changing it place, it is not immutabile
+            NOTE: This works directly with the raw data changing it in place, it is not immutabile
             
             Args:
                 weather: the raw data record we are working with
@@ -213,7 +213,7 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
 
         return weather
 
-    def collect_and_print_data(self, weather_data: Iterable[Dict[str, Any]], zip_code: str) -> tuple[int, list, list, defaultdict]:
+    def collect_and_print_data(self, weather_data: Iterable[Dict[str, Any]], zip_code: str) -> tuple[int, list, list, defaultdict[str, list[str]]]:
         """Collects the data to the two lists, temp_list and humidity_list. Gets the number of cloudy days.
             and converts the temps in the raw data to F
             
@@ -222,10 +222,10 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
                 zip_code: Zip code that the collected data represents
             
             Returns:
-                tuple[int, list, list, defaultdict]: the number of cloudy days, temp_list, humidity_list, and timestamps_for_plots
+                tuple[int, list, list, defaultdict[str, list[str]]]: the number of cloudy days, temp_list, humidity_list, and timestamps_for_plots
 
             Examples:
-                >>> weather = convert_temp_to_F(weather)
+                >>> cloudy_days, temp_list, humidity_list, timestamps_for_plots = self.collect_and_print_data(weather_data, zip_code)
             """
         cloudy_days = 0
         cloudy_days_func = self.get_cloudy_days()
@@ -242,11 +242,11 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
             # Leave this line commented out until sure it is not needed. 
             #temp_list, humidity_list = self.generate_lists(weather, temp_list, humidity_list)
 
-            if weather["temperature"]["value"] != None:
+            if weather["temperature"]["value"] is not None:
                 timestamps_for_plots["temp"].append(weather["timestamp"]) # We only want to add timestamps that have valid temp data for plotting
                 temp_list.append(weather["temperature"]["value"]) # We need to append the temp value here as well because we are filtering out None values in the clean_data function, so we need to make sure the lists are the same length as the timestamps for plotting. We could do this in the clean_data function but it is easier to do it here.
 
-            if weather["relativeHumidity"]["value"] != None:
+            if weather["relativeHumidity"]["value"] is not None:
                 timestamps_for_plots["humidity"].append(weather["timestamp"]) # We only want to add timestamps that have valid humidity data for plotting
                 humidity_list.append(weather["relativeHumidity"]["value"]) # We need to append the humidity value here as well because we are filtering out None values in the clean_data function, so we need to make sure the lists are the same length as the timestamps for plotting. We could do this in the clean_data function but it is easier to do it here.
                 
@@ -260,7 +260,7 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
 
         return cloudy_days, temp_list, humidity_list, timestamps_for_plots
 
-    def init_weather_data(self) -> tuple[list, list]:
+    def init_weather_data(self) -> tuple[list, list, defaultdict[str, list[str]]]:
         """Initialize and collect the raw data, build the lists temp_list and humidiy_list
             convert C to F and print the raw data
             
@@ -268,7 +268,7 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
                 None
             
             Returns:
-                tuple[list, list]: the two lists that were generated
+                tuple[list, list, defaultdict[str, list[str]]]: the two lists that were generated and the timestamps_for_plots dict
 
             Examples:
                 >>> init_weather_data()
@@ -319,43 +319,49 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
 
     #     return temp_list, humidity_list
 
-    def create_plots(self, temp_list: list, humidity_list: list, timestamps_for_plots: list) -> None:
+    def create_plots(self, temp_list: list, humidity_list: list, timestamps_for_plots: defaultdict[str, list[str]]) -> None:
         """Calls functions to create a standard, box and histogram plot
             
             Args:
                 temp_list: temperatures that were in the raw data
                 humidity_list: humidity values that were in the raw data
+                timestamps_for_plots: the dict of lists that contains the timestamps for the temp and 
+                    humidity data that we want to plot
             
             Returns:
                 None
 
             Examples:
-                >>> create_plots(temp_list, humidity_list)
+                >>> create_plots(temp_list, humidity_list, timestamps_for_plots)
             """
         self.create_standard(temp_list, humidity_list, timestamps_for_plots)
         self.create_box_plot(temp_list, humidity_list)
         self.create_histogram(temp_list)
 
-    def create_standard(self, temp_list: list, humidity_list: list, timestamps_for_plots: list) -> None:
+    def create_standard(self, temp_list: list, humidity_list: list, timestamps_for_plots: defaultdict[str, list[str]]) -> None:
         """Creates a standard plot using the matplotlib.pyplot class. Also saves the plot as a png file
             While we asked for 10 days of data, the noaa API will only return what it has, so we may not get 10 days
             
             Args:
                 temp_list: temperatures that were in the raw data
                 humidity_list: humidity values that were in the raw data
+                timestamps_for_plots: the dict of lists that contains the timestamps for the temp and 
+                    humidity data that we want to plot
             
             Returns:
                 None
 
             Examples:
-                >>> create_standard(temp_list, humidity_list)
+                >>> create_standard(temp_list, humidity_list, timestamps_for_plots)
             """
+        # Commented out as this block moved to it's own method to convert the timestamps to 
+        # datetime objects for better plotting.
         # Convert string timestamps to datetime objects for better plotting
-        for i in range(len(timestamps_for_plots["temp"])):
-            timestamps_for_plots["temp"][i] = datetime.datetime.fromisoformat(timestamps_for_plots["temp"][i].replace('Z', '+00:00'))
+        # for i in range(len(timestamps_for_plots["temp"])):
+        #     timestamps_for_plots["temp"][i] = datetime.datetime.fromisoformat(timestamps_for_plots["temp"][i].replace('Z', '+00:00'))
 
-        for i in range(len(timestamps_for_plots["humidity"])):
-            timestamps_for_plots["humidity"][i] = datetime.datetime.fromisoformat(timestamps_for_plots["humidity"][i].replace('Z', '+00:00'))
+        # for i in range(len(timestamps_for_plots["humidity"])):
+        #     timestamps_for_plots["humidity"][i] = datetime.datetime.fromisoformat(timestamps_for_plots["humidity"][i].replace('Z', '+00:00'))
 
         plt.figure(figsize=(14, 7))  # Wider figure for time axis
         plt.plot(timestamps_for_plots["temp"], temp_list, label="Temperature (°F)", color="red", linewidth=1.5)
@@ -401,13 +407,12 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
             
             Args:
                 temp_list: temperatures that were in the raw data
-                humidity_list: humidity values that were in the raw data
             
             Returns:
                 None
 
             Examples:
-                >>> create_histogram(temp_list, humidity_list)
+                >>> create_histogram(temp_list)
             """
         # Create a histogram for temperature
         plt.figure()
@@ -494,6 +499,33 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
         name = "Rowland Holden"
         print(name) # Print student name
 
+    def convert_time_stamps(self, timestamps_for_plots: defaultdict) -> defaultdict:
+        """We need to ues actual data time format for the plots and not strings. 
+            This function converts the string timestamps to datetime objects for better plotting. 
+            We also need to replace the "Z" in the timestamps with "+00:00" to indicate that they 
+            are in UTC time, which is required for the fromisoformat function to work correctly.
+
+        Args:
+            timestamps_for_plots: the dict of lists that contains the timestamps for the 
+                temp and humidity data that we want to plot
+
+        Returns:
+            timestamps_for_plots: the same dict of lists but with the timestamps converted to 
+                datetime objects for better plotting
+
+        Examples:
+            >>> convert_time_stamps(timestamps_for_plots)
+        """
+         # Convert string timestamps to datetime objects for better plotting
+        for i in range(len(timestamps_for_plots["temp"])):
+            timestamps_for_plots["temp"][i] = datetime.datetime.fromisoformat(timestamps_for_plots["temp"][i].replace('Z', '+00:00'))
+
+        for i in range(len(timestamps_for_plots["humidity"])):
+            timestamps_for_plots["humidity"][i] = datetime.datetime.fromisoformat(timestamps_for_plots["humidity"][i].replace('Z', '+00:00'))
+        
+        return timestamps_for_plots
+
+
     def main(self) -> None:
         """Main entry point for the program. I have always felt that the main entry point of the program shouldn't do any real
             work other than calling functions or methods. Sometimes assign variables to pass to calls but that is 
@@ -516,6 +548,7 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
         # data for the plots, so it is easier to do it in the same place where we are generating the
         # lists for the plots.
         #temp_list, humidity_list = self.clean_data(temp_list, humidity_list)
+        timestamps_for_plots = self.convert_time_stamps(timestamps_for_plots) # We need to convert the time stamps to datetime objects for plotting, we can do this in the create_standard function but it is easier to do it here so we only have to do it once and we can use the converted timestamps for all the plots if we want to.
         self.create_plots(temp_list, humidity_list, timestamps_for_plots)
         self.calculate_and_print_statistics(temp_list, humidity_list)
     
