@@ -59,8 +59,8 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
                 is the zip code. Need this so we can print the valid records processed message. 
             
             Examples:
-                >>> raw_data, zip_code = self.get_noaa_data()
-                >>> weather_data, zip_code = self.get_noaa_data()
+                >>> raw_data = self.get_noaa_data()
+                >>> weather_data = self.get_noaa_data()
             """
         
         # API likes a start date and end date - calc those here. 
@@ -68,7 +68,6 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
         past = today - datetime.timedelta(days=10)
         start_date = past.strftime("%Y-%m-%d")
         end_date = today.strftime("%Y-%m-%d")
-        zip_code = "98204"  # Everett Washington Zip Code for API
 
         # Initialize NOAA API
         noaa_api = noaa.NOAA()
@@ -76,7 +75,7 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
         # Try catch block for the API call
         try:
         # Fetch weather data for the specified date range and location
-            weather_data = noaa_api.get_observations(zip_code, "US", start = start_date, end = end_date)
+            weather_data = noaa_api.get_observations(self.zip_code, "US", start = start_date, end = end_date)
 
             # Ensure we received data
             first_item = next(weather_data, None)
@@ -84,8 +83,8 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
                 raise ValueError("No observations returned for the specified period and location.")
             
             # Reset generator so caller can still iterate fully
-            weather_data = noaa_api.get_observations(zip_code, "US", start=start_date, end=end_date)
-            return weather_data, zip_code
+            weather_data = noaa_api.get_observations(self.zip_code, "US", start=start_date, end=end_date)
+            return weather_data
         
         except noaa.exceptions.NoaaSdkException as e:
             print(f"NOAA API error: {e}")
@@ -182,15 +181,15 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
         def tracking_dates(weather: Dict[str, Any], current_cloudy_days: int) -> int:
             nonlocal processed_dates # Get access to the list in get_cloudy_days
             cur_date = self.extract_date(weather)
-            cloudy_days = current_cloudy_days # ensure the origional data is not overwritten
+            self.cloudy_days = current_cloudy_days # ensure the origional data is not overwritten
 
             # Count cloudy days
             if "cloudy" in weather["textDescription"].lower(): 
                 if cur_date not in processed_dates:
-                    cloudy_days += 1
+                    self.cloudy_days += 1
                     processed_dates.append(cur_date)
 
-            return cloudy_days
+            return self.cloudy_days
 
         return tracking_dates
 
@@ -213,21 +212,19 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
 
         return weather
 
-    def collect_and_print_data(self, weather_data: Iterable[Dict[str, Any]], zip_code: str) -> tuple[int, list, list, defaultdict[str, list[str]]]:
+    def collect_and_print_data(self, weather_data: Iterable[Dict[str, Any]]) -> tuple[int, list, list, defaultdict[str, list[str]]]:
         """Collects the data to the two lists, temp_list and humidity_list. Gets the number of cloudy days.
             and converts the temps in the raw data to F
             
             Args:
                 weather: the raw data record we are working with
-                zip_code: Zip code that the collected data represents
             
             Returns:
                 tuple[int, list, list, defaultdict[str, list[str]]]: the number of cloudy days, temp_list, humidity_list, and timestamps_for_plots
 
             Examples:
-                >>> cloudy_days, temp_list, humidity_list, timestamps_for_plots = self.collect_and_print_data(weather_data, zip_code)
+                >>> cloudy_days, temp_list, humidity_list, timestamps_for_plots = self.collect_and_print_data(weather_data)
             """
-        cloudy_days = 0
         cloudy_days_func = self.get_cloudy_days()
         temp_list = []
         humidity_list = []
@@ -250,15 +247,15 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
                 timestamps_for_plots["humidity"].append(weather["timestamp"]) # We only want to add timestamps that have valid humidity data for plotting
                 humidity_list.append(weather["relativeHumidity"]["value"]) # We need to append the humidity value here as well because we are filtering out None values in the clean_data function, so we need to make sure the lists are the same length as the timestamps for plotting. We could do this in the clean_data function but it is easier to do it here.
                 
-            cloudy_days = cloudy_days_func(weather, cloudy_days) # This is a closure function called get_cloudy_days
+            self.cloudy_days = cloudy_days_func(weather, self.cloudy_days) # This is a closure function called get_cloudy_days
             
             self.print_data(weather)
 
         print() # Blank line between raw data and processed number info
-        print(f"processed {len(temp_list)} valid temperatures found in Noaa observations for zip code {zip_code}")
-        print(f"processed {len(humidity_list)} valid humidity values found in Noaa observations for zip code {zip_code}")
+        print(f"processed {len(temp_list)} valid temperatures found in Noaa observations for zip code {self.zip_code}")
+        print(f"processed {len(humidity_list)} valid humidity values found in Noaa observations for zip code {self.zip_code}")
 
-        return cloudy_days, temp_list, humidity_list, timestamps_for_plots
+        return self.cloudy_days, temp_list, humidity_list, timestamps_for_plots
 
     def init_weather_data(self) -> tuple[list, list, defaultdict[str, list[str]]]:
         """Initialize and collect the raw data, build the lists temp_list and humidiy_list
@@ -273,13 +270,13 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
             Examples:
                 >>> init_weather_data()
             """
-        weather_data, zip_code = self.get_noaa_data()
+        weather_data = self.get_noaa_data()
 
-        cloudy_days, temp_list, humidity_list, timestamps_for_plots = self.collect_and_print_data(weather_data, zip_code)
+        self.cloudy_days, temp_list, humidity_list, timestamps_for_plots = self.collect_and_print_data(weather_data)
 
         # Lets put a blank line between raw data and readable data
         print()
-        print(f"Number of cloudy days in the last 10 days: {cloudy_days}")
+        print(f"Number of cloudy days in the last 10 days: {self.cloudy_days}")
        
 
         return temp_list, humidity_list,timestamps_for_plots
@@ -552,7 +549,7 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
         self.create_plots(temp_list, humidity_list, timestamps_for_plots)
         self.calculate_and_print_statistics(temp_list, humidity_list)
     
-    def __init__(self):
+    def __init__(self, zip_entry: str = "98204") -> None:
         """called automatically when class is instanced. 
             
             Args:
@@ -562,10 +559,10 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
                 None
 
             Examples:
-                >>> weather_app = HoldenRowlandFinalCeis101NoaaWeather()
+                >>> weather_app = RowlandNoaaWeather()
             """
-        pass
-
+        self.cloudy_days = 0
+        self.zip_code = zip_entry
 
 # ********************* SCRIPT
 
