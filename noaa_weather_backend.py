@@ -37,9 +37,11 @@ Note: The NOAA API returns all available observations in the requested time wind
 
 from noaa_sdk import noaa
 from collections import defaultdict
+from uszipcode import SearchEngine
+from typing import Dict, Any, Iterable
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
-from typing import Dict, Any, Iterable
+import requests
 import datetime
 import sys
 
@@ -47,7 +49,33 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
 
     # ****************** FUNCTIONS
 
-    # Use the noaa api to get weather data
+    def get_forcast_data(self) -> Dict[str, Any]:
+        """Gets the forecast data from the Noaa API, this is not used in the current version of the program but I have it here in case I want to use it in the future. 
+            
+            Args:
+                None
+            
+            Returns:
+                Dict[str, Any]: the raw data from the Noaa API for the forecast data
+            
+            Examples:
+                >>> forecast_data = self.get_forcast_data()
+            """
+
+        search = SearchEngine(simple_zipcode=True)  
+        zipcode = search.by_zipcode(self.zip_code)  
+        lat, lon = zipcode.lat, zipcode.lng
+
+        data_point_url = f"https://api.weather.gov/points/{lat},{lon}"
+        data_request = requests.get(data_point_url)
+        forecast_url = data_request.json()["properties"]["forecast"]
+
+        # Step 2: Get the forecast
+        forecast_request = requests.get(forecast_url)
+        forecast_data = forecast_request.json()["properties"]["periods"]
+
+        return forecast_data
+
     def get_noaa_data(self) -> tuple[Iterable[Dict[str, Any]], str]:
         """collects raw data from the Noaa API
             
@@ -136,7 +164,7 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
                 >>> print_data(weather)
             """
         print(weather["timestamp"], "\t",
-                weather["temperature"]["value"], " °F\t",
+                weather["temperature"]["value"], "°F\t",
                 weather["relativeHumidity"]["value"], "\t",
                 weather["textDescription"], "\t",)
         
@@ -207,8 +235,11 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
                 >>> weather = convert_temp_to_F(weather)
             """
         temp = weather["temperature"]["value"] 
-        if temp != None: temp = (temp * (9/5)) + 32 
-        weather["temperature"]["value"] = temp
+        if temp is not None: 
+            temp = (temp * (9/5)) + 32 
+            temp = str(temp).strip() 
+            temp = float(temp) 
+            weather["temperature"]["value"] = temp
 
         return weather
 
