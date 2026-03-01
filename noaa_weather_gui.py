@@ -28,17 +28,15 @@ Requirements:
 - os (standard library)
 
 Note: The noaa_weather_backend returns all available records from the Noaa stations for the various zip codes
-     in the requested time window noaa stations have data for. 
-     The backend is currently hard-coded to fetch data for ZIP code 98204, 
-     but the GUI is designed to allow dynamic input of ZIP codes in the future. 
-     The number of cloudy days is currently a placeholder and will be implemented 
-     in the next step after we have the cleaned data available in the GUI.
+     in the requested time window noaa stations have data for. This means the number of records and the time 
+     window they cover can vary based on the zip code and station data availability.
 """
 import customtkinter as ctk
 import tkinter.messagebox as messagebox
 from PIL import Image, ImageTk
 import threading
 import os
+import gc
 
 from noaa_weather_backend import RowlandNoaaWeather   
 
@@ -58,7 +56,12 @@ class WeatherAppGUI(ctk.CTk):
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
 
     def configure_forcast_data(self, forecast_data) -> None:
-        header_label = ctk.CTkLabel(self.results_container,text=f"14 Day Forecast:",font=("Arial", 16, "bold"))
+        self.results_container = ctk.CTkScrollableFrame(self.overview_tab, width=900, height=400)
+        self.results_container.pack(pady=15, fill="both", expand=True)
+
+        header_label = ctk.CTkLabel(self.results_container,
+                                    text=f"14 Day Forecast:",
+                                    font=("Arial", 16, "bold"))
         header_label.pack(pady=(0, 10))
     
         forcast_frame = ctk.CTkFrame(self.results_container)
@@ -66,22 +69,30 @@ class WeatherAppGUI(ctk.CTk):
 
         headings = ["Day/Period", "Temp (°F)", "Description", "Chance of Rain"]
         for col, heading in enumerate(headings):
-            label = ctk.CTkLabel(forcast_frame, text=heading, font=("Courier", 15, "bold"), justify="left")
+            label = ctk.CTkLabel(forcast_frame, 
+                                 text=heading, 
+                                 font=("Courier", 15, "bold"), justify="left")
             label.grid(column=col, row=0, sticky="w", pady=5, padx=(0,15))
 
         for i, period in enumerate(forecast_data):
             chance = period['probabilityOfPrecipitation']['value'] or 0  # default to 0 if None
 
             # Day / Period Name
-            label_day = ctk.CTkLabel(forcast_frame, text=period['name'], font=("Courier", 15), justify="left")
+            label_day = ctk.CTkLabel(forcast_frame, 
+                                     text=period['name'], 
+                                     font=("Courier", 15), justify="left")
             label_day.grid(column=0, row=i+1, sticky="w", pady=2, padx=(0,15))
 
             # Temperature
-            label_temp = ctk.CTkLabel(forcast_frame, text=f"{period['temperature']}°F", font=("Courier", 15), justify="left")
+            label_temp = ctk.CTkLabel(forcast_frame, 
+                                      text=f"{period['temperature']}°F", 
+                                      font=("Courier", 15), justify="left")
             label_temp.grid(column=1, row=i+1, sticky="w", pady=2, padx=(0,25))
 
             # Short Forecast / Description
-            label_desc = ctk.CTkLabel(forcast_frame, text=period['shortForecast'], font=("Courier", 15), justify="left")
+            label_desc = ctk.CTkLabel(forcast_frame, 
+                                      text=period['shortForecast'], 
+                                      font=("Courier", 15), justify="left")
             label_desc.grid(column=2, row=i+1, sticky="w", pady=2, padx=(0,25))
 
             # Chance of Rain with conditional coloring
@@ -91,59 +102,79 @@ class WeatherAppGUI(ctk.CTk):
                 color = "orange"
             else:
                 color = "green"
-            label_rain = ctk.CTkLabel(forcast_frame, text=f"{chance}%", font=("Courier", 15), justify="left", text_color=color)
+            label_rain = ctk.CTkLabel(forcast_frame, 
+                                      text=f"{chance}%", 
+                                      font=("Courier", 15), justify="left", 
+                                      text_color=color)
             label_rain.grid(column=3, row=i+1, sticky="w", pady=2, padx=(0,15))
 
+    def create_tabs(self) -> None:
+        self.tabview = ctk.CTkTabview(self)
+        self.tabview.pack(pady=10, padx=30, fill="both", expand=True)
 
+        self.overview_tab = self.tabview.add("Overview")
+        self.standard_plot_tab = self.tabview.add("Temp & Humidity Plot")
+
+        self.box_plot_tab = self.tabview.add("Box Plot")
+        self.temp_histogram_tab = self.tabview.add("Temp Histogram")
+
+        self.raw_data_tab = self.tabview.add("Raw Data")
+
+    def create_input_area(self) -> None:
+        input_frame = ctk.CTkFrame(self)
+        input_frame.pack(pady=10, padx=30)
+
+        zip_label = ctk.CTkLabel(input_frame, 
+                                 text="Enter ZIP Code:", 
+                                 font=("Arial", 13))
+        zip_label.grid(row=0, column=0, sticky="w", pady=5)
+
+        self.zip_entry = ctk.CTkEntry(input_frame, width=100, placeholder_text="e.g. 98204")
+        self.zip_entry.grid(row=0, column=1, sticky="w", pady=5, padx=(10,20))
+
+        fetch_button = ctk.CTkButton(input_frame, 
+                                     text="Fetch & Analyze", 
+                                     command=self.start_fetch_thread)
+        fetch_button.grid(row=0, column=2, sticky="w", pady=5)
+
+    def create_results_container(self) -> None:
+        self.results_container = ctk.CTkScrollableFrame(self.overview_tab, width=900, height=400)
+        self.results_container.pack(pady=15, fill="both", expand=True)
 
     def create_widgets(self) -> None:
-        # ── Header ───────────────────────────────────────────────────────
+        # Window Header (shows on all tabs)
         header = ctk.CTkLabel(self, text="Weather Data Analyzer", font=("Arial", 24, "bold"))
         header.pack(pady=(20, 10))
 
-        # ── Tabs creation ────────────────────────────────────────────────
-        self.tabs = ctk.CTkTabview(self)
-        self.tabs.pack(pady=10, padx=30, fill="both", expand=True)
-
-        self.overview_tab = self.tabs.add("Overview")
-        self.standard_plot_tab = self.tabs.add("Standard Plot")
-        self.box_plot_tab = self.tabs.add("Box Plot")
-        self.temp_histogram_tab = self.tabs.add("Temp Histogram")
-        self.raw_data_tab = self.tabs.add("Raw Data")
-        # ── Input area ───────────────────────────────────────────────────
-        input_frame = ctk.CTkFrame(self.overview_tab)
-        input_frame.pack(pady=10, padx=30)
-
-        input_frame.grid_columnconfigure(2, weight=1)
-
-        zip_label = ctk.CTkLabel(input_frame, text="ZIP Code:", font=("Arial", 14))#.pack(side="left", padx=(0, 10))
-        zip_label.grid(row=0, column=0, padx=(0, 10))
-
-        self.zip_entry = ctk.CTkEntry(input_frame, width=140, placeholder_text="e.g. 98204")
-        # May not need this self.zip_entry.insert(0, "98204")
-        self.zip_entry.grid(row=0, column=1, padx=(0,2))
-
-        fetch_btn = ctk.CTkButton(input_frame, text="Fetch & Analyze", width=160,
-                                 command=self.start_fetch_thread)
-        fetch_btn.grid(row=0, column=2, padx=20)
-
-        # ── Status ───────────────────────────────────────────────────────
+        self.create_input_area() # Only shows on overview tab, but we can easily move it to a more global area if desired
+        self.create_tabs()
+        
+        # Status text at the bottom of the overview tab shows current state 
+        # (e.g. "Ready", "Fetching data...", "Analysis complete", "Error: ...") 
+        # shows on all tabs but is updated by the overview tab's processes activated by the fetch button
         self.status = ctk.CTkLabel(self, text="Ready", font=("Arial", 13), text_color="gray")
         self.status.pack(pady=(10, 5))
 
-        # ── Results scrollable area ──────────────────────────────────────
-        self.results_container = ctk.CTkScrollableFrame(self.overview_tab, fg_color="transparent")
-        self.results_container.pack(pady=10, padx=30, fill="both", expand=True)
+        #self.create_results_container()
 
     def start_fetch_thread(self) -> None:
         self.status.configure(text="Fetching data from NOAA... Please wait", text_color="orange")
         self.update_idletasks()  # force redraw
 
         # Clear previous results
-        for child in self.results_container.winfo_children():
-            child.destroy()
+        for tab_name in ["Overview", "Temp & Humidity Plot", "Box Plot", "Temp Histogram", "Raw Data"]:
+                tab = self.tabview.tab(tab_name)
+                for child in tab.winfo_children():
+                    if hasattr(child, 'image'):
+                        child.image = None          # drop PhotoImage ref early
+                    child.destroy()
 
-        thread = threading.Thread(target=self.run_analysis, daemon=True)
+        #self.create_tabs()  # Recreate the tabs after destroying them to start fresh
+
+        gc.collect()  # Force garbage collection to free memory from previous results before starting new analysis
+
+        # create and start a new thread to run the analysis so the GUI doesn't freeze while waiting for API calls and processing
+        thread = threading.Thread(target=self.run_analysis, daemon=True) # daemon=True allows the thread to exit when the main program exits
         thread.start()
 
     def run_analysis(self) -> None:
@@ -153,94 +184,126 @@ class WeatherAppGUI(ctk.CTk):
             else:   
                 self.backend.zip_code = self.zip_entry.get().strip()
 
-            temp_list, humidity_list, timestamps = self.backend.init_weather_data()
-            self.backend.create_plots(temp_list, humidity_list, timestamps)
+            # Fetch and process data using the backend
+            self.temp_list, humidity_list, timestamps = self.backend.init_weather_data()
+            self.backend.create_plots(self.temp_list, humidity_list, timestamps)
 
-            self.forcast_data = self.backend.get_forcast_data()
-            self.configure_forcast_data(self.forcast_data)
+            # Fetch forecast data and show in the overview tab
+            self.raw_forcast_data = self.backend.get_forecast_data()
+            self.configure_forcast_data(self.raw_forcast_data)
+            # print the raw forcast data in the raw forecast tab (currently just reusing the raw data tab for simplicity, 
+            # but could easily be split into a separate tab if desired)
             self.print_raw_forcast_data()
 
             # We skip console stats printing for GUI version – we'll show them in UI
-            self.after(0, self.show_results, temp_list, humidity_list)
+            # Ensure this runs after the API calls and processing is done, and runs in the main thread to safely update the GUI with results (Thread-safe GUI updates)
+            self.after(0, self.show_results, humidity_list) 
 
             self.print_raw_noaa_data()
+
+            gc.collect()  # Force garbage collection after processing to free memory from large data structures and images
 
         except Exception as e:
             self.after(0, self.show_error, str(e))
 
-    def clean_record(self, record) -> dict:
-        new_record = {}
-        new_record["timestamp"] = record["timestamp"][1:record["timestamp"].find("+")-1].strip()  # remove brackets and whitespace
-        
-        record = self.backend.convert_temp_to_F(record)
-        if record["temperature"]["value"] is not None: 
-            new_record["temperature"] = round(record["temperature"]["value"], 2)
-        else:
-            new_record["temperature"] = record["temperature"]["value"]
-        
-        if record["relativeHumidity"]["value"] is not None:
-            hum = str(record["relativeHumidity"]["value"]).strip()
-            hum = round(float(record["relativeHumidity"]["value"]), 2)
-            new_record["relativeHumidity"] = hum
-        else:
-            new_record["relativeHumidity"] = record["relativeHumidity"]["value"]
-        
-        new_record["textDescription"] = record["textDescription"].strip()  # remove brackets and whitespace
-
-        return new_record
-
     def print_raw_noaa_data(self) -> None:
-        raw_data_text = ctk.CTkLabel(self.raw_data_tab, text="Raw NOAA Data:", font=("Arial", 14, "bold"))
+        raw_data_text = ctk.CTkLabel(self.raw_data_tab, text="Raw NOAA Data:", font=("Arial", 20, "bold"))
         raw_data_text.pack(pady=(20, 10))
+
+        self.add_history_msg(self.raw_data_tab)
+
+        for weather in self.raw_noaa_data:
+            self.backend.convert_temp_to_F(weather)  # Convert temperatures to Fahrenheit for display
 
         raw_data_frame = ctk.CTkScrollableFrame(self.raw_data_tab, width=900, height=400)
         raw_data_frame.grid_columnconfigure(3, weight=1)
         raw_data_frame.pack(pady=10, padx=30, fill="both", expand=True)
 
-        raw_weather_data = self.backend.get_noaa_data()
+        # headers
+        headers = ["Timestamp", "Temperature", "Humidity", "Description"]
+        for i, header in enumerate(headers):
+            record_header = ctk.CTkLabel(raw_data_frame, 
+                                         text=header, 
+                                         font=("Courier", 15, "bold"), justify="left")
+            record_header.grid(column=i, row=0, sticky="w", pady=5, padx=(0,15))
 
-        # header
-        record_header = ctk.CTkLabel(raw_data_frame, text="Timestamp", font=("Courier", 15, "bold"), justify="left")
-        record_header.grid(column = 0, row=0, sticky="w", pady=5, padx=(0,20))
-        record_header = ctk.CTkLabel(raw_data_frame, text="Temperature", font=("Courier", 15, "bold"), justify="left")
-        record_header.grid(column = 1, row=0, sticky="w", pady=5, padx=(0,15))
-        record_header = ctk.CTkLabel(raw_data_frame, text="Humidity", font=("Courier", 15, "bold"), justify="left")
-        record_header.grid(column = 2, row=0, sticky="w", pady=5, padx=(0,15))
-        record_header = ctk.CTkLabel(raw_data_frame, text="Description", font=("Courier", 15, "bold"), justify="left")
-        record_header.grid(column = 3, row=0, sticky="w", pady=5, padx=(0,15))
+        # record_header = ctk.CTkLabel(raw_data_frame, text="Timestamp", font=("Courier", 15, "bold"), justify="left")
+        # record_header.grid(column = 0, row=0, sticky="w", pady=5, padx=(0,20))
+        # record_header = ctk.CTkLabel(raw_data_frame, text="Temperature", font=("Courier", 15, "bold"), justify="left")
+        # record_header.grid(column = 1, row=0, sticky="w", pady=5, padx=(0,15))
+        # record_header = ctk.CTkLabel(raw_data_frame, text="Humidity", font=("Courier", 15, "bold"), justify="left")
+        # record_header.grid(column = 2, row=0, sticky="w", pady=5, padx=(0,15))
+        # record_header = ctk.CTkLabel(raw_data_frame, text="Description", font=("Courier", 15, "bold"), justify="left")
+        # record_header.grid(column = 3, row=0, sticky="w", pady=5, padx=(0,15))
 
-        for i, record in enumerate(raw_weather_data):
-            record = self.clean_record(record)
+        for i, record in enumerate(self.raw_noaa_data):
+            # record = self.clean_record(record)
 
-            record_label_dte = ctk.CTkLabel(raw_data_frame, text=str(record["timestamp"]), font=("Courier", 15), justify="left")
+            record_label_dte = ctk.CTkLabel(raw_data_frame, 
+                                            text=str(record["timestamp"]), 
+                                            font=("Courier", 15), justify="left")
             record_label_dte.grid(column = 0, row=i+1, sticky="w", pady=2, padx=(0,20))
-            record_label_temp = ctk.CTkLabel(raw_data_frame, text=(str(record["temperature"]) + " °F"), font=("Courier", 15), justify="left")
+            record_label_temp = ctk.CTkLabel(raw_data_frame, 
+                                             text=(str(record["temperature"]["value"]) + " °F"), 
+                                             font=("Courier", 15), justify="left")
             record_label_temp.grid(column = 1, row=i+1, sticky="w", pady=2, padx=(0,15))
-            record_label_humid = ctk.CTkLabel(raw_data_frame, text=(str(record["relativeHumidity"]) + "%"), font=("Courier", 15), justify="left")
+            record_label_humid = ctk.CTkLabel(raw_data_frame, 
+                                              text=(str(record["relativeHumidity"]["value"]) + "%"), 
+                                              font=("Courier", 15), justify="left")
             record_label_humid.grid(column = 2, row=i+1, sticky="w", pady=2, padx=(0,15))
-            record_label_desc = ctk.CTkLabel(raw_data_frame, text=str(record["textDescription"]), font=("Courier", 15), justify="left")
+            record_label_desc = ctk.CTkLabel(raw_data_frame, 
+                                             text=str(record["textDescription"]), 
+                                             font=("Courier", 15), justify="left")
             record_label_desc.grid(column = 3, row=i+1, sticky="w", pady=2, padx=(0,15) )
 
     def print_raw_forcast_data(self) -> None:
-        self.forcast_data
+        self.raw_forcast_data
 
-    def show_results(self, temp_list, humidity_list) -> None:
-        # ── Cloudy days & basic info ─────────────────────────────────────
+    def get_hist_days(self) -> int:
+        unique_dates = set()  # Use a set to track unique dates without worrying about duplicates
+        self.raw_noaa_data = list(self.backend.get_noaa_data())
+
+        if not self.raw_noaa_data:
+            return 0
+        
+        for record in self.raw_noaa_data:
+            date = record["timestamp"]
+            date = date[:date.find("T")].strip()  # remove timezone and whitespace
+            unique_dates.add(date)
+
+        return len(unique_dates)
+
+    def add_history_msg(self, container: ctk.CTkFrame | ctk.CTkTabview) -> None:
+        show_days_of_noaa_history = ctk.CTkLabel(container,
+                                                 text=(
+                                                     f"NOAA historical data covers approximately {len(self.temp_list)} records over "
+                                                     f"{self.get_hist_days()} days (varies based on station data availability)"),
+                                                 font=("Arial", 16, "bold", "italic"))
+        show_days_of_noaa_history.pack(pady=(0, 20))
+
+    def show_results(self, humidity_list) -> None:
+        show_history_msg = ctk.CTkLabel(self.results_container,
+                                        text=f"Showing historical data for ZIP code: {self.backend.zip_code}",
+                                        font=("Arial", 24, "bold"))
+        show_history_msg.pack(pady=(20, 10))
+        self.add_history_msg(self.results_container)
+
+        # displays the number of cloudy days in the noaa data
         cloudy_label = ctk.CTkLabel(self.results_container,
                                     text=f"Cloudy days in last ~10 days: {self.backend.cloudy_days}",  
                                     font=("Arial", 16, "bold"))
         cloudy_label.pack(pady=(20, 10))
 
-        # ── Stats ─────────────────────────────────────────────────────────
+        # Prints the stats from the noaa data in a with temperature stats and humidity stats side by side in the overview tab
         stats_frame = ctk.CTkFrame(self.results_container)
         stats_frame.pack(pady=15, fill="x")
         stats_frame.grid_columnconfigure((0,1), weight=1)
 
         temp_stats = ctk.CTkLabel(stats_frame,
                                   text="Temperature Statistics\n" +
-                                       f"Avg: {round(sum(temp_list)/len(temp_list),1)}°F\n" +
-                                       f"Min: {round(min(temp_list),1)}°F\n" +
-                                       f"Max: {round(max(temp_list),1)}°F",
+                                       f"Avg: {round(sum(self.temp_list)/len(self.temp_list),1)}°F\n" +
+                                       f"Min: {round(min(self.temp_list),1)}°F\n" +
+                                       f"Max: {round(max(self.temp_list),1)}°F",
                                   justify="left", anchor="w")
         temp_stats.grid(row=0, column=0, padx=40, pady=10, sticky="w")
 
@@ -252,27 +315,54 @@ class WeatherAppGUI(ctk.CTk):
                                    justify="left", anchor="w")
         humid_stats.grid(row=0, column=1, padx=40, pady=10, sticky="w")
 
-        # ── Plots ─────────────────────────────────────────────────────────
+        # Creates plots on the respective tabs if the plot files exist (they should if the backend processing completed successfully)
         for plot_name in ["weather.png", "boxplot.png", "temperature_histogram.png"]:
             if os.path.exists(plot_name):
                 try:
-                    img = Image.open(plot_name)
-                    img.thumbnail((700, 500))  # reasonable max size
-                    #photo = ImageTk.PhotoImage(img)
+                    with Image.open(plot_name) as img:                # ← auto-closes file
+                        # Make a copy/resized version while file is open
+                        img_resized = img.copy()                      # or img.thumbnail() if in-place is ok
+                        img_resized.thumbnail((700, 500), Image.LANCZOS)
 
-                    if plot_name == "weather.png":
-                        img_ctl = ctk.CTkImage(light_image=img, dark_image=img, size=img.size)
-                        img_label = ctk.CTkLabel(self.standard_plot_tab, image=img_ctl, text="")
-                    elif plot_name == "boxplot.png":
-                        img_ctl = ctk.CTkImage(light_image=img, dark_image=img, size=img.size)
-                        img_label = ctk.CTkLabel(self.box_plot_tab, image=img_ctl, text="")
-                    elif plot_name == "temperature_histogram.png":
-                        img_ctl = ctk.CTkImage(light_image=img, dark_image=img, size=img.size)
-                        img_label = ctk.CTkLabel(self.temp_histogram_tab, image=img_ctl, text="")
+                        photo = ImageTk.PhotoImage(img_resized)
+
+                        if plot_name == "weather.png":
+                            label = ctk.CTkLabel(self.standard_plot_tab, image=photo, text="")
+                        elif plot_name == "boxplot.png":
+                            label = ctk.CTkLabel(self.box_plot_tab, image=photo, text="")
+                        elif plot_name == "temperature_histogram.png":
+                            label = ctk.CTkLabel(self.temp_histogram_tab, image=photo, text="")
+
+                        label.image = photo                           # keep strong ref
+                        label.pack(pady=10, fill="x")
+                        img.close()                 # or .grid() etc.
+                except Exception as e:
+                    print(f"Error loading plot {plot_name}: {e}")
+                    # Optional: show error label in GUI
+                    error_lbl = ctk.CTkLabel(self.results_container, text=f"Failed to load {plot_name}", text_color="red")
+                    error_lbl.pack(pady=5)
+        
+        
+        # for plot_name in ["weather.png", "boxplot.png", "temperature_histogram.png"]:
+        #     if os.path.exists(plot_name):
+        #         try:
+        #             img = Image.open(plot_name)
+        #             img.thumbnail((700, 500))  # reasonable max size
+        #             #photo = ImageTk.PhotoImage(img)
+
+        #             if plot_name == "weather.png":
+        #                 img_ctl = ctk.CTkImage(light_image=img, dark_image=img, size=img.size)
+        #                 img_label = ctk.CTkLabel(self.standard_plot_tab, image=img_ctl, text="")
+        #             elif plot_name == "boxplot.png":
+        #                 img_ctl = ctk.CTkImage(light_image=img, dark_image=img, size=img.size)
+        #                 img_label = ctk.CTkLabel(self.box_plot_tab, image=img_ctl, text="")
+        #             elif plot_name == "temperature_histogram.png":
+        #                 img_ctl = ctk.CTkImage(light_image=img, dark_image=img, size=img.size)
+        #                 img_label = ctk.CTkLabel(self.temp_histogram_tab, image=img_ctl, text="")
                
-                    img_label.pack(pady=15)
-                except:
-                    pass
+        #             img_label.pack(pady=15)
+        #         except:
+        #             pass
 
         self.status.configure(text="Analysis complete", text_color="green")
 

@@ -49,7 +49,7 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
 
     # ****************** FUNCTIONS
 
-    def get_forcast_data(self) -> Dict[str, Any]:
+    def get_forecast_data(self) -> Dict[str, Any]:
         """Gets the forecast data from the Noaa API, this is not used in the current version of the program but I have it here in case I want to use it in the future. 
             
             Args:
@@ -59,24 +59,29 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
                 Dict[str, Any]: the raw data from the Noaa API for the forecast data
             
             Examples:
-                >>> forecast_data = self.get_forcast_data()
+                >>> forecast_data = self.get_forecast_data()
             """
 
         search = SearchEngine(simple_zipcode=True)  
         zipcode = search.by_zipcode(self.zip_code)  
         lat, lon = zipcode.lat, zipcode.lng
 
+        headers = {"User-Agent": "(rowlandholden@example.com)"}  # Replace with your contact info
         data_point_url = f"https://api.weather.gov/points/{lat},{lon}"
-        data_request = requests.get(data_point_url)
+        data_request = requests.get(data_point_url, headers=headers)
+
+        if data_request.status_code != 200:
+            raise ValueError(f"Point API error: {data_request.status_code}")
+
         forecast_url = data_request.json()["properties"]["forecast"]
 
         # Step 2: Get the forecast
-        forecast_request = requests.get(forecast_url)
+        forecast_request = requests.get(forecast_url, headers=headers)
         forecast_data = forecast_request.json()["properties"]["periods"]
 
         return forecast_data
 
-    def get_noaa_data(self) -> tuple[Iterable[Dict[str, Any]], str]:
+    def get_noaa_data(self) -> Iterable[Dict[str, Any]]:
         """collects raw data from the Noaa API
             
             Args:
@@ -170,7 +175,7 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
         
     def extract_date(self, weather: Dict[str, Any]) -> str:
         """Gets the date portion of the timestamp from the current record of the raw data, used to track cloudy days.
-            we don't want to cound the same cloudy day twice and the raw data has many records involving different readings
+            we don't want to count the same cloudy day twice and the raw data has many records involving different readings
             on the same day
             
             Args:
@@ -189,7 +194,7 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
 
     def get_cloudy_days(self) -> int:
         """a closure function for Tracking days. need this to make processed dates persistent across calls so it will
-            remember the dates it has already in the list. I find how this works to be increadable. 
+            remember the dates it has already in the list. I find how this works to be incredible. 
             
             Args:
                 None
@@ -205,19 +210,19 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
                             num_of_cloudy_days = get_cloudy_days_func(weather, num_of_cloudy_days)
             """
         processed_dates = []
+        cloudy_days = 0
 
         def tracking_dates(weather: Dict[str, Any], current_cloudy_days: int) -> int:
-            nonlocal processed_dates # Get access to the list in get_cloudy_days
+            nonlocal processed_dates, cloudy_days # Get access to the list in get_cloudy_days
             cur_date = self.extract_date(weather)
-            self.cloudy_days = current_cloudy_days # ensure the origional data is not overwritten
 
             # Count cloudy days
             if "cloudy" in weather["textDescription"].lower(): 
                 if cur_date not in processed_dates:
-                    self.cloudy_days += 1
+                    cloudy_days += 1
                     processed_dates.append(cur_date)
 
-            return self.cloudy_days
+            return cloudy_days
 
         return tracking_dates
 
@@ -289,7 +294,7 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
         return self.cloudy_days, temp_list, humidity_list, timestamps_for_plots
 
     def init_weather_data(self) -> tuple[list, list, defaultdict[str, list[str]]]:
-        """Initialize and collect the raw data, build the lists temp_list and humidiy_list
+        """Initialize and collect the raw data, build the lists temp_list and humidity_list
             convert C to F and print the raw data
             
             Args:
@@ -528,7 +533,7 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
         print(name) # Print student name
 
     def convert_time_stamps(self, timestamps_for_plots: defaultdict) -> defaultdict:
-        """We need to ues actual data time format for the plots and not strings. 
+        """We need to use actual data time format for the plots and not strings. 
             This function converts the string timestamps to datetime objects for better plotting. 
             We also need to replace the "Z" in the timestamps with "+00:00" to indicate that they 
             are in UTC time, which is required for the fromisoformat function to work correctly.
@@ -544,12 +549,18 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
         Examples:
             >>> convert_time_stamps(timestamps_for_plots)
         """
+        for key in ["temp", "humidity"]:
+            if key in timestamps_for_plots:
+                timestamps_for_plots[key] = [
+                datetime.datetime.fromisoformat(ts.replace('Z', '+00:00'))
+                for ts in timestamps_for_plots[key]
+            ]
          # Convert string timestamps to datetime objects for better plotting
-        for i in range(len(timestamps_for_plots["temp"])):
-            timestamps_for_plots["temp"][i] = datetime.datetime.fromisoformat(timestamps_for_plots["temp"][i].replace('Z', '+00:00'))
+        # for i in range(len(timestamps_for_plots["temp"])):
+        #     timestamps_for_plots["temp"][i] = datetime.datetime.fromisoformat(timestamps_for_plots["temp"][i].replace('Z', '+00:00'))
 
-        for i in range(len(timestamps_for_plots["humidity"])):
-            timestamps_for_plots["humidity"][i] = datetime.datetime.fromisoformat(timestamps_for_plots["humidity"][i].replace('Z', '+00:00'))
+        # for i in range(len(timestamps_for_plots["humidity"])):
+        #     timestamps_for_plots["humidity"][i] = datetime.datetime.fromisoformat(timestamps_for_plots["humidity"][i].replace('Z', '+00:00'))
         
         return timestamps_for_plots
 
