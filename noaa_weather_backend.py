@@ -35,6 +35,10 @@ Note: The NOAA API returns all available observations in the requested time wind
     Not guaranteed to cover full 10 days if data is sparse.
 """
 
+import matplotlib
+matplotlib.use('Agg')
+print("Matplotlib backend:", matplotlib.get_backend())  # should say "agg"
+
 from noaa_sdk import noaa
 from collections import defaultdict
 from uszipcode import SearchEngine
@@ -44,10 +48,11 @@ import matplotlib.dates as mdates
 import requests
 import datetime
 import sys
+import gc
 
 class RowlandNoaaWeather: # Named as such to ensure it will never conflict with another class name. 
 
-    # ****************** FUNCTIONS
+    # ****************** METHODS
 
     def get_forecast_data(self) -> Dict[str, Any]:
         """Gets the forecast data from the Noaa API, this is not used in the current version of the program but I have it here in case I want to use it in the future. 
@@ -61,23 +66,22 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
             Examples:
                 >>> forecast_data = self.get_forecast_data()
             """
-
-        search = SearchEngine(simple_zipcode=True)  
-        zipcode = search.by_zipcode(self.zip_code)  
+        # Step 1: Get the forecast URL for the given zip code
+        zipcode = self.zip_search.by_zipcode(self.zip_code)  
         lat, lon = zipcode.lat, zipcode.lng
 
-        headers = {"User-Agent": "(rowlandholden@example.com)"}  # Replace with your contact info
-        data_point_url = f"https://api.weather.gov/points/{lat},{lon}"
-        data_request = requests.get(data_point_url, headers=headers)
+        headers = {"User-Agent": "(rowlandholden7@gmail.com)"} 
 
-        if data_request.status_code != 200:
-            raise ValueError(f"Point API error: {data_request.status_code}")
+        with requests.Session() as session:
+            data_point_url = f"https://api.weather.gov/points/{lat},{lon}"
+            data_request = session.get(data_point_url, headers=headers)
+            data_request.raise_for_status()  # Raise an exception for HTTP errors
+            forecast_url = data_request.json()["properties"]["forecast"]
 
-        forecast_url = data_request.json()["properties"]["forecast"]
-
-        # Step 2: Get the forecast
-        forecast_request = requests.get(forecast_url, headers=headers)
-        forecast_data = forecast_request.json()["properties"]["periods"]
+            # Step 2: Get the forecast
+            forecast_request = session.get(forecast_url, headers=headers)
+            forecast_request.raise_for_status()  # Raise an exception for HTTP errors
+            forecast_data = forecast_request.json()["properties"]["periods"]
 
         return forecast_data
 
@@ -168,10 +172,10 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
             Examples:
                 >>> print_data(weather)
             """
-        print(weather["timestamp"], "\t",
-                weather["temperature"]["value"], "°F\t",
-                weather["relativeHumidity"]["value"], "\t",
-                weather["textDescription"], "\t",)
+        # print(weather["timestamp"], "\t",
+        #         weather["temperature"]["value"], "°F\t",
+        #         weather["relativeHumidity"]["value"], "\t",
+        #         weather["textDescription"], "\t",)
         
     def extract_date(self, weather: Dict[str, Any]) -> str:
         """Gets the date portion of the timestamp from the current record of the raw data, used to track cloudy days.
@@ -287,9 +291,9 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
             
             self.print_data(weather)
 
-        print() # Blank line between raw data and processed number info
-        print(f"processed {len(temp_list)} valid temperatures found in Noaa observations for zip code {self.zip_code}")
-        print(f"processed {len(humidity_list)} valid humidity values found in Noaa observations for zip code {self.zip_code}")
+        # print() # Blank line between raw data and processed number info
+        # print(f"processed {len(temp_list)} valid temperatures found in Noaa observations for zip code {self.zip_code}")
+        # print(f"processed {len(humidity_list)} valid humidity values found in Noaa observations for zip code {self.zip_code}")
 
         return self.cloudy_days, temp_list, humidity_list, timestamps_for_plots
 
@@ -311,8 +315,8 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
         self.cloudy_days, temp_list, humidity_list, timestamps_for_plots = self.collect_and_print_data(weather_data)
 
         # Lets put a blank line between raw data and readable data
-        print()
-        print(f"Number of cloudy days in the last 10 days: {self.cloudy_days}")
+        # print()
+        # print(f"Number of cloudy days in the last 10 days: {self.cloudy_days}")
        
 
         return temp_list, humidity_list,timestamps_for_plots
@@ -371,6 +375,8 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
         self.create_box_plot(temp_list, humidity_list)
         self.create_histogram(temp_list)
 
+        print("Figures open:", len(plt.get_fignums()))
+
     def create_standard(self, temp_list: list, humidity_list: list, timestamps_for_plots: defaultdict[str, list[str]]) -> None:
         """Creates a standard plot using the matplotlib.pyplot class. Also saves the plot as a png file
             While we asked for 10 days of data, the noaa API will only return what it has, so we may not get 10 days
@@ -401,7 +407,7 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
         plt.plot(timestamps_for_plots["humidity"], humidity_list, label="Humidity (%)", color="blue", linewidth=1.5)
         
         plt.legend(loc="upper right")
-        plt.title("Temperature and Humidity Over Time (ZIP 98204)")
+        plt.title(f"Temperature and Humidity Over Time (ZIP {self.zip_code})")
         plt.xlabel("Observation Time")
         plt.ylabel("Value")
         
@@ -414,6 +420,9 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
         
         plt.tight_layout()  # Prevents label cutoff
         plt.savefig("weather.png", dpi=150)  # Higher dpi for clearer saved image
+        plt.close()  # Close the plot to free memory
+        gc.collect()  # Force garbage collection to free memory used by the plot
+
 
     def create_box_plot(self, temp_list: list, humidity_list: list) -> None:
         """Creates a box plot using the matplotlib.pyplot class. Also saves the plot as a png file
@@ -432,8 +441,10 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
         plt.figure()
         box_data = [temp_list, humidity_list]
         plt.boxplot(box_data, tick_labels=["Temperature", "Humidity"])
-        plt.suptitle("Box Plot")
+        plt.suptitle(f"Box Plot (ZIP {self.zip_code})")
         plt.savefig("boxplot.png")  # Save the box plot as an image file
+        plt.close()  # Close the plot to free memory
+        gc.collect()  # Force garbage collection to free memory used by the plot
 
     def create_histogram(self, temp_list: list) -> None:
         """Creates a histogram of temperature distribution using the matplotlib.pyplot class. Also saves the plot as a png file
@@ -450,10 +461,12 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
         # Create a histogram for temperature
         plt.figure()
         plt.hist(temp_list, bins=10, color="red", alpha=0.7)
-        plt.suptitle("Temperature Distribution")
+        plt.suptitle(f"Temperature Distribution (ZIP {self.zip_code})")
         plt.xlabel("Temperature (°F)")
         plt.ylabel("Frequency")
         plt.savefig("temperature_histogram.png")  # Save the histogram as an image file
+        plt.close()  # Close the plot to free memory
+        gc.collect()  # Force garbage collection to free memory used by the plot    
 
     def print_temp_stats(self, temp_list: list) -> None:
         """Outputs temperature statistics
@@ -471,9 +484,9 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
         low_temp = min(temp_list)
         high_temp = max(temp_list)
 
-        print(f"The average temperature was: {round(ave_temp, 1)}°F")
-        print(f"The lowest temperature was: {round(low_temp, 1)}°F")
-        print(f"The highest temperature was: {round(high_temp, 1)}°F")
+        # print(f"The average temperature was: {round(ave_temp, 1)}°F")
+        # print(f"The lowest temperature was: {round(low_temp, 1)}°F")
+        # print(f"The highest temperature was: {round(high_temp, 1)}°F")
 
     def print_humidity_stats(self, humidity_list: list) -> None:
         """Outputs humidity statistics
@@ -491,9 +504,9 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
         low_humidity = min(humidity_list)
         high_humidity = max(humidity_list)
 
-        print(f"The average humidity was: {round(ave_humidity, 1)}%")
-        print(f"The lowest humidity was: {round(low_humidity, 1)} %")
-        print(f"The highest humidity was: {round(high_humidity, 1)}%")
+        # print(f"The average humidity was: {round(ave_humidity, 1)}%")
+        # print(f"The lowest humidity was: {round(low_humidity, 1)} %")
+        # print(f"The highest humidity was: {round(high_humidity, 1)}%")
 
     def calculate_and_print_statistics(self, temp_list: list, humidity_list: list) -> None:
         """calls print_temp_stats and print_humidity_stats for calculation and printing. Labels these "Weather Statistics"
@@ -509,13 +522,13 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
                 >>> calculate_and_print_statistics(temp_list, humidity_list)
             """
 
-        print() # Blank line before statistics
-        print("Weather Statistics")
-        # Print temp data
-        self.print_temp_stats(temp_list)
-        print() #Blank line between temp and humidity
-        # Print humidity data
-        self.print_humidity_stats(humidity_list)
+        # print() # Blank line before statistics
+        # print("Weather Statistics")
+        # # Print temp data
+        # self.print_temp_stats(temp_list)
+        # print() #Blank line between temp and humidity
+        # # Print humidity data
+        # self.print_humidity_stats(humidity_list)
 
     def print_student_name(self) -> None:
         """Prints the students name at the beginning of output
@@ -530,7 +543,7 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
                 >>> print_student_name()
             """
         name = "Rowland Holden"
-        print(name) # Print student name
+        # print(name) # Print student name
 
     def convert_time_stamps(self, timestamps_for_plots: defaultdict) -> defaultdict:
         """We need to use actual data time format for the plots and not strings. 
@@ -605,9 +618,11 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
             """
         self.cloudy_days = 0
         self.zip_code = zip_entry
+        self.zip_search = SearchEngine(simple_zipcode=True)  
 
 # ********************* SCRIPT
 
 if __name__ == "__main__":
+
     noaa_weather = RowlandNoaaWeather()
     noaa_weather.main()
