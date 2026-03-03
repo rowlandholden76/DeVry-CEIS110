@@ -521,7 +521,7 @@ class WeatherAppGUI(ctk.CTk):
         Examples:
             generate_plots()
         """
-        # self.backend.create_plots(self.temp_list, self.humidity_list, self.timestamps)
+        #self.backend.create_plots(self.temp_list, self.humidity_list, self.timestamps)
         plt.close('all')  # Close all figures to free memory
         gc.collect()  # Force garbage collection to free memory used by the plots
 
@@ -759,7 +759,7 @@ class WeatherAppGUI(ctk.CTk):
         # Update GUI with new data and plots
         self.update_forecast_tab()
         self.update_stats_tab()
-        self.update_plots()
+        #self.update_plots()
         self.update_hist_raw_data_tab()
         self.update_forecast_raw_data_tab()
 
