@@ -1,28 +1,41 @@
-CEIS110 - Intro to programming
+# CEIS110 - Intro to Programming
 
-There are four files here.  
-The first one "Turned-in-Final.py" is the actual class final that was turned in. 
-  
-The second one "Enhanced-Final.py" is what I turned the class final into. There is a huge difference between the two.  
-  
-The third "Calculator.py" This is one that I did while taking the class. It wasn't an assignment but I wanted to practice.  
-&nbsp;&nbsp;&nbsp;&nbsp;To challenge myself I chose to write a calculator that would take an entire expression and print out the  
-&nbsp;&nbsp;&nbsp;&nbsp;step by step process of simplifying it. Ultimately concluding at the simplified answer. What makes this  
-&nbsp;&nbsp;&nbsp;&nbsp;unique is the challenge I gave myself. Do this without importing any libraries. That means the parsing,  
-&nbsp;&nbsp;&nbsp;&nbsp;input verification had to be all done without the aid of regular expressions. It also means that the math  
-&nbsp;&nbsp;&nbsp;&nbsp;had to be done without the aid of the math library. It sounds simple? I thought so to, until one gets  
-&nbsp;&nbsp;&nbsp;&nbsp;into just how deep the rabit hole goes with brackets(){}[] that may not match or may be unbalanced,  
-&nbsp;&nbsp;&nbsp;&nbsp;Expressions that result in a complex number an in valid character in the expression such as a letter "a,"  
-&nbsp;&nbsp;&nbsp;&nbsp;and so on. Most of the code in this, is error checking, validation and parsing.  
+## Project Files
 
-The fourth is "weaher_GUI.py" this is the gui created for noaa_weather_backend.py. It displays a forecast of the weather, then prints historical statistics
-&nbsp;&nbsp;&nbsp;&nbsp;and generates 3 historal plots for different ways of viewing the data. Finally it prints the raw data for both the forecast data
-&nbsp;&nbsp;&nbsp;&nbsp;and the historical data. 
+### 1. Turned-in-Final.py
+The actual class final that was turned in.
 
-NOTE: For the GUI a very large memory leak was found, 10-15MB for each fetch. After testin and working to find it, it was discovered that the leak was not my code, 
-&nbsp;&nbsp;&nbsp;&nbsp;but a native C heap leak. This was discovered using psutil and tracemalloc. Tracemalloc showed that the code that I wrote remained flat, 
-&nbsp;&nbsp;&nbsp;&nbsp;only minor growth ~1 mb per 15 fetches. psutil showed 10-15mb of growth per fetch. This proved the lead to be native. 
-&nbsp;&nbsp;&nbsp;&nbsp;When isolating the leak to see where it was from, it was found to be when the files were open. Given that the GDI objects remained
-&nbsp;&nbsp;&nbsp;&nbsp;flat, it was determined that it was a native C heap leak. In trying to find a workaround I discovered that rendering the plots directly 
-&nbsp;&nbsp;&nbsp;&nbsp;in the GUI, instead of opening the saved files, was the best way to work around the leak. Now we see minor memory growth (~1–3 MB/fetch) 
-&nbsp;&nbsp;&nbsp;&nbsp;observed after many refreshes due to Tkinter/matplotlib internals — stabilizes after ~10–15 fetches. Disabled opening plots for lower baseline use.
+### 2. Enhanced-Final.py
+What I transformed the class final into. There is a huge difference between the two.
+
+### 3. Calculator.py
+A practice project I created while taking the class. This wasn't an assignment, but I wanted to challenge myself.
+
+To push myself further, I wrote a calculator that takes an entire expression and prints out the step-by-step process of simplifying it, concluding with the final answer. What makes this unique is my self-imposed constraint: **do this without importing any libraries**. 
+
+This means:
+- Parsing and input verification without regular expressions
+- Math calculations without the math library
+- Handling complex edge cases like unbalanced brackets `(){}[]`, invalid characters, and complex number expressions
+
+Most of the code focuses on error checking, validation, and parsing.
+
+### 4. weather_GUI.py
+A GUI created for `noaa_weather_backend.py` that displays:
+- A weather forecast
+- Historical statistics
+- 3 historical plots showing different data perspectives
+- Raw data for both forecast and historical information
+
+---
+
+## Notable Issue: Memory Leak Discovery
+
+A significant memory leak was identified in the GUI (~10-15MB per fetch). After thorough investigation using `psutil` and `tracemalloc`, the leak was traced to **native C heap memory**, not the Python code itself.
+
+**Key findings:**
+- Python code remained flat with only minor growth (~1MB per 15 fetches)
+- System-level memory showed 10-15MB growth per fetch
+- The leak originated when opening plot files (GDI objects)
+
+**Solution:** Rendering plots directly in the GUI instead of opening saved files eliminated the leak. Current performance shows minor memory growth (~1-3MB per fetch) after many refreshes due to Tkinter/matplotlib internals, stabilizing after 10-15 fetches.
