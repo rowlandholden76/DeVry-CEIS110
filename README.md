@@ -32,7 +32,8 @@ A GUI created for `noaa_weather_backend.py` that displays:
 ## Notable Issue: Memory Leak Discovery
 
 A significant memory leak was identified in the GUI (~10-15MB per fetch). After thorough investigation using `psutil` and `tracemalloc`, the leak was traced to **native C heap memory**, not the Python code itself.
-Another leak was also found. A thread leak. Changed from standard threading to a thread pool. This eliminated the rest of the memory leak. The program is now stable at about 167MB plus or minus 3MB. 
+
+A second leak was also discovered: a thread leak. By switching from standard threading to a thread pool, the remaining memory leak was eliminated. The program now runs stably at approximately 167MB ±3MB.
 
 **Key findings:**
 - Python code remained flat with only minor growth (~1MB per 15 fetches)
