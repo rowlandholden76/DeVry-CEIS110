@@ -73,6 +73,7 @@ Note: The noaa_weather_backend returns all available records from the Noaa stati
      in the next step after we have the cleaned data available in the GUI.
 """
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+from concurrent.futures import ThreadPoolExecutor
 from matplotlib.figure import Figure
 import matplotlib.dates as mdates
 import customtkinter as ctk
@@ -113,6 +114,7 @@ class WeatherAppGUI(ctk.CTk):
         self.minsize(900, 700)
 
         self.backend = RowlandNoaaWeather()
+        self.executor = ThreadPoolExecutor(max_workers=1)  # 1 worker = sequential fetches (prevents thread buildup if user clicks fetch multiple times quickly)
 
         # The tab view will never be destroyed when reseting for new zip, create it here. 
         self.tabs = ctk.CTkTabview(self)
@@ -303,12 +305,11 @@ class WeatherAppGUI(ctk.CTk):
         self.std_fig = Figure(figsize=(9, 7), dpi=100)
         self.std_subplot = self.std_fig.add_subplot(111)
         self.std_canvas = FigureCanvasTkAgg(self.std_fig, master=self.std_plot_frame)
-
-        # --------------Enable the right click context menu on the plot canvases for saving the plots as images--------
+        # --------------Enable the menu on the plot canvases for saving and manipulating the plots--------
+        # Standard Plot toolbar
         self.std_toolbar = NavigationToolbar2Tk(self.std_canvas, self.std_plot_frame)
         self.std_toolbar.update()  # Required
-        self.std_toolbar.pack(side="top", fill="x")  # Hide the buttons, but keep menu active
-        self.std_canvas.mpl_connect("button_press_event", self.std_toolbar._on_mouse_button_press)
+        self.std_toolbar.pack(side="top", fill="x") 
 
         self.std_canvas.get_tk_widget().pack(fill="both", expand=True)
         # -------------BOX PLOT WIDGETS-------------
@@ -319,6 +320,12 @@ class WeatherAppGUI(ctk.CTk):
         self.box_fig = Figure(figsize=(7, 5), dpi=100   )
         self.box_subplot = self.box_fig.add_subplot(111)
         self.box_canvas = FigureCanvasTkAgg(self.box_fig, master=self.box_plot_frame)
+        # --------------Enable the menu on the plot canvases for saving and manipulating the plots--------
+        # Box Plot toolbar
+        self.box_toolbar = NavigationToolbar2Tk(self.box_canvas, self.box_plot_frame)
+        self.box_toolbar.update()
+        self.box_toolbar.pack(side="top", fill="x")
+
         self.box_canvas.get_tk_widget().pack(fill="both", expand=True)
         # -------------TEMPERATURE HISTOGRAM WIDGETS-------------
         # Message Label
@@ -328,22 +335,13 @@ class WeatherAppGUI(ctk.CTk):
         self.fig_hist = Figure(figsize=(7, 5), dpi=100)
         self.hist_subplot = self.fig_hist.add_subplot(111)
         self.hist_canvas = FigureCanvasTkAgg(self.fig_hist, master=self.temp_hist_frame)
-        self.hist_canvas.get_tk_widget().pack(fill="both", expand=True)
-
-        # --------------Enable the right click context menu on the plot canvases for saving the plots as images--------
-        self.std_toolbar = NavigationToolbar2Tk(self.std_canvas, self.std_plot_frame)
-        self.std_toolbar.update()  # Required
-        self.std_toolbar.pack(side="top", fill="x")  # Hide the buttons, but keep menu active
-
-        # Box Plot toolbar
-        self.box_toolbar = NavigationToolbar2Tk(self.box_canvas, self.box_plot_frame)
-        self.box_toolbar.update()
-        self.box_toolbar.pack_forget()
-
+        # --------------Enable the menu on the plot canvases for saving and manipulating the plots--------
         # Histogram toolbar
         self.hist_toolbar = NavigationToolbar2Tk(self.hist_canvas, self.temp_hist_frame)
         self.hist_toolbar.update()
-        self.hist_toolbar.pack_forget()
+        self.hist_toolbar.pack(side="top", fill="x")
+
+        self.hist_canvas.get_tk_widget().pack(fill="both", expand=True)
         #-------  END PLOT SECTION -------
 
         # Raw Forecast Data header
@@ -456,8 +454,9 @@ class WeatherAppGUI(ctk.CTk):
         # self.create_widgets()
 
         # Start a new thread to fetch data to avoid blocking the GUI
-        fetch_thread = threading.Thread(target=self.run_analysis, daemon=True)
-        fetch_thread.start()
+        self.executor.submit(self.run_analysis)  # submit to pool instead of new thread
+        # fetch_thread = threading.Thread(target=self.run_analysis, daemon=True)
+        # fetch_thread.start()
 
     def get_data(self) -> None:
         """gets the data from the backend for both noaa data(for history) and forecast data,
@@ -839,6 +838,7 @@ class WeatherAppGUI(ctk.CTk):
             on_closing()
         """
         if messagebox.askokcancel("Quit", "Do you want to quit?"):
+            self.executor.shutdown(wait=True)  # Cleanly shutdown the thread pool to free resources
             self.destroy()
 
 if __name__ == "__main__":
