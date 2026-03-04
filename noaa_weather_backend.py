@@ -50,14 +50,14 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
     # ****************** METHODS
 
     def get_forecast_data(self) -> Dict[str, Any]:
-        """Gets the forecast data from the Noaa API, this is not used in the current version of the program but I have it here in case I want to use it in the future. 
-            
+        """Retrieve forecast periods from the National Weather Service API.
+
             Args:
                 None
-            
+
             Returns:
-                Dict[str, Any]: the raw data from the Noaa API for the forecast data
-            
+                Dict[str, Any]: Parsed JSON for forecast periods for the configured ZIP code.
+
             Examples:
                 >>> forecast_data = self.get_forecast_data()
             """
@@ -81,18 +81,19 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
         return forecast_data
 
     def get_noaa_data(self) -> Iterable[Dict[str, Any]]:
-        """collects raw data from the Noaa API
-            
+        """Collect raw observations from NOAA for the configured ZIP code.
+
+            The method requests observations for roughly the previous 10 days
+            and returns an iterable (generator) of observation dicts.
+
             Args:
                 None
-            
+
             Returns:
-                tuple[Iterable[Dict[str, Any]], str]: Generator - we are only using the Iterable side though, so we are using Dict, the other
-                is the zip code. Need this so we can print the valid records processed message. 
-            
+                Iterable[Dict[str, Any]]: Generator of observation records.
+
             Examples:
-                >>> raw_data = self.get_noaa_data()
-                >>> weather_data = self.get_noaa_data()
+                >>> raw_data = list(self.get_noaa_data())
             """
         
         # API likes a start date and end date - calc those here. 
@@ -160,17 +161,17 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
             
             Args:
                 weather: the raw data record to work with
-            
+
             Returns:
                 None
-            
+
             Examples:
-                >>> print_data(weather)
+                >>> self.print_data(weather)
             """
-        # print(weather["timestamp"], "\t",
-        #         weather["temperature"]["value"], "°F\t",
-        #         weather["relativeHumidity"]["value"], "\t",
-        #         weather["textDescription"], "\t",)
+        print(weather["timestamp"], "\t",
+                weather["temperature"]["value"], "°F\t",
+                weather["relativeHumidity"]["value"], "\t",
+                weather["textDescription"], "\t",)
         
     def extract_date(self, weather: Dict[str, Any]) -> str:
         """Gets the date portion of the timestamp from the current record of the raw data, used to track cloudy days.
@@ -192,27 +193,23 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
         return new_date
 
     def get_cloudy_days(self) -> int:
-        """a closure function for Tracking days. need this to make processed dates persistent across calls so it will
-            remember the dates it has already in the list. I find how this works to be incredible. 
-            
+        """Return a closure that tracks unique cloudy dates seen in observations.
+
             Args:
                 None
-            
+
             Returns:
-                int: the number of cloudy days that tracking dates returned
+                Callable: A tracking function accepting (weather, current_count) and returning updated cloudy day count.
 
             Examples:
-                >>> In your calling function you do two things
-                        1. initalize this function to a variable(do this outside of the loop you are using to count the days)
-                            get_cloudy_days_func = get_cloudy_days()
-                        2. inside the loop you call the variable with the arguments
-                            num_of_cloudy_days = get_cloudy_days_func(weather, num_of_cloudy_days)
+                >>> tracker = self.get_cloudy_days()
+                >>> count = tracker(weather, 0)
             """
         processed_dates = []
         cloudy_days = 0
 
         def tracking_dates(weather: Dict[str, Any], current_cloudy_days: int) -> int:
-            nonlocal processed_dates, cloudy_days # Get access to the list in get_cloudy_days
+            nonlocal cloudy_days # Get access to the counter in get_cloudy_days
             cur_date = self.extract_date(weather)
 
             # Count cloudy days
@@ -226,17 +223,16 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
         return tracking_dates
 
     def convert_temp_to_F(self, weather: Dict[str, Any]) -> Dict[str, Any]:
-        """convert C to F in the raw data so when it prints it is in F
-            NOTE: This works directly with the raw data changing it in place, it is not immutabile
-            
+        """Convert the temperature in an observation from °C to °F in-place.
+
             Args:
                 weather: the raw data record we are working with
-            
+
             Returns:
-                Dict[str, Any]: the modified raw data record
+                Dict[str, Any]: the modified raw data record (same object passed in)
 
             Examples:
-                >>> weather = convert_temp_to_F(weather)
+                >>> weather = self.convert_temp_to_F(weather)
             """
         temp = weather["temperature"]["value"] 
         if temp is not None: 
@@ -248,17 +244,19 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
         return weather
 
     def collect_and_print_data(self, weather_data: Iterable[Dict[str, Any]]) -> tuple[int, list, list, defaultdict[str, list[str]]]:
-        """Collects the data to the two lists, temp_list and humidity_list. Gets the number of cloudy days.
-            and converts the temps in the raw data to F
-            
+        """Process raw weather observations into lists for plotting and stats.
+
+            Iterates `weather_data`, converts temperatures to °F, filters out
+            missing values for plotting, and updates the cloudy-day tracker.
+
             Args:
-                weather: the raw data record we are working with
-            
+                weather_data: Iterable of NOAA observation records.
+
             Returns:
-                tuple[int, list, list, defaultdict[str, list[str]]]: the number of cloudy days, temp_list, humidity_list, and timestamps_for_plots
+                tuple[int, list, list, defaultdict]: (cloudy_days, temp_list, humidity_list, timestamps_for_plots)
 
             Examples:
-                >>> cloudy_days, temp_list, humidity_list, timestamps_for_plots = self.collect_and_print_data(weather_data)
+                >>> cd, temps, hums, stamps = self.collect_and_print_data(weather_data)
             """
         cloudy_days_func = self.get_cloudy_days()
         temp_list = []
@@ -286,91 +284,53 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
             
             self.print_data(weather)
 
-        # print() # Blank line between raw data and processed number info
-        # print(f"processed {len(temp_list)} valid temperatures found in Noaa observations for zip code {self.zip_code}")
-        # print(f"processed {len(humidity_list)} valid humidity values found in Noaa observations for zip code {self.zip_code}")
+        print() # Blank line between raw data and processed number info
+        print(f"processed {len(temp_list)} valid temperatures found in Noaa observations for zip code {self.zip_code}")
+        print(f"processed {len(humidity_list)} valid humidity values found in Noaa observations for zip code {self.zip_code}")
 
         return self.cloudy_days, temp_list, humidity_list, timestamps_for_plots
 
     def init_weather_data(self) -> tuple[list, list, defaultdict[str, list[str]]]:
-        """Initialize and collect the raw data, build the lists temp_list and humidity_list
-            convert C to F and print the raw data
-            
+        """Fetch and process observations, returning lists and timestamps for plots.
+
             Args:
                 None
-            
+
             Returns:
-                tuple[list, list, defaultdict[str, list[str]]]: the two lists that were generated and the timestamps_for_plots dict
+                tuple[list, list, defaultdict]: (temp_list, humidity_list, timestamps_for_plots)
 
             Examples:
-                >>> init_weather_data()
+                >>> temps, hums, stamps = self.init_weather_data()
             """
         weather_data = self.get_noaa_data()
 
         self.cloudy_days, temp_list, humidity_list, timestamps_for_plots = self.collect_and_print_data(weather_data)
 
         # Lets put a blank line between raw data and readable data
-        # print()
-        # print(f"Number of cloudy days in the last 10 days: {self.cloudy_days}")
+        print()
+        print(f"Number of cloudy days in the last 10 days: {self.cloudy_days}")
        
 
         return temp_list, humidity_list,timestamps_for_plots
 
-    # leave this commented out until sure it is not needed. I originally had this function to 
-    # clean the data but I found it easier to do it in the collect_and_print_data function because 
-    # we need to track timestamps for the plots and we only want to track timestamps that have valid 
-    # data for the plots, so it is easier to do it in the same place where we are generating the 
-    # lists for the plots.
-    # def clean_data(self, temp_list: list, humidity_list: list) -> tuple[list, list]:
-    #     """Cleaning the data by getting rid of any "None" values in the raw data. This will ensure accruate plotting later
-            
-    #         Args:
-    #             temp_list: temperatures that were in the raw data
-    #             humidity_list: humidity values that were in the raw data
-            
-    #         Returns:
-    #             tuple[list, list]: the two lists that were filtered
-
-    #         Examples:
-    #             >>> temp_list, humidity_list = clean_data(temp_list, humidity_list)
-    #         """
-    #     start_humid_len = len(humidity_list)
-    #     start_temp_len = len(temp_list)
-
-    #     humidity_list = list(filter(None, humidity_list))
-    #     temp_list = list(filter(None, temp_list))
-    #     end_humid_len = len(humidity_list)
-    #     end_temp_len = len(temp_list)
-
-    #     Hum_rec_removed = start_humid_len - end_humid_len
-    #     temp_rec_removed = start_temp_len - end_temp_len
-
-    #     print() # Blank line before showing how many records were removed
-    #     print(f"Removed {temp_rec_removed} temperature values")
-    #     print(f"Removed {Hum_rec_removed} humidity values")
-
-    #     return temp_list, humidity_list
-
     def create_plots(self, temp_list: list, humidity_list: list, timestamps_for_plots: defaultdict[str, list[str]]) -> None:
-        """Calls functions to create a standard, box and histogram plot
-            
+        """Generate and save the time-series, boxplot and histogram images.
+
             Args:
                 temp_list: temperatures that were in the raw data
                 humidity_list: humidity values that were in the raw data
                 timestamps_for_plots: the dict of lists that contains the timestamps for the temp and 
                     humidity data that we want to plot
-            
+
             Returns:
                 None
 
             Examples:
-                >>> create_plots(temp_list, humidity_list, timestamps_for_plots)
+                >>> self.create_plots(temp_list, humidity_list, timestamps_for_plots)
             """
         self.create_standard(temp_list, humidity_list, timestamps_for_plots)
         self.create_box_plot(temp_list, humidity_list)
         self.create_histogram(temp_list)
-
-        print("Figures open:", len(plt.get_fignums()))
 
     def create_standard(self, temp_list: list, humidity_list: list, timestamps_for_plots: defaultdict[str, list[str]]) -> None:
         """Creates a standard plot using the matplotlib.pyplot class. Also saves the plot as a png file
@@ -420,17 +380,17 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
 
 
     def create_box_plot(self, temp_list: list, humidity_list: list) -> None:
-        """Creates a box plot using the matplotlib.pyplot class. Also saves the plot as a png file
-            
+        """Creates a box plot comparing temperature and humidity distributions.
+
             Args:
                 temp_list: temperatures that were in the raw data
                 humidity_list: humidity values that were in the raw data
-            
+
             Returns:
                 None
 
             Examples:
-                >>> create_box_plot(temp_list, humidity_list)
+                >>> self.create_box_plot(temp_list, humidity_list)
             """
         # Create a box plot
         plt.figure()
@@ -442,16 +402,16 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
         gc.collect()  # Force garbage collection to free memory used by the plot
 
     def create_histogram(self, temp_list: list) -> None:
-        """Creates a histogram of temperature distribution using the matplotlib.pyplot class. Also saves the plot as a png file
-            
+        """Creates a histogram of temperature distribution and saves it to disk.
+
             Args:
                 temp_list: temperatures that were in the raw data
-            
+
             Returns:
                 None
 
             Examples:
-                >>> create_histogram(temp_list)
+                >>> self.create_histogram(temp_list)
             """
         # Create a histogram for temperature
         plt.figure()
@@ -464,99 +424,96 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
         gc.collect()  # Force garbage collection to free memory used by the plot    
 
     def print_temp_stats(self, temp_list: list) -> None:
-        """Outputs temperature statistics
-            
+        """Compute basic temperature statistics (avg, min, max).
+
             Args:
                 temp_list: temperatures that were in the raw data
-            
+
             Returns:
                 None
 
             Examples:
-                >>> print_temp_stats(temp_list)
+                >>> self.print_temp_stats(temp_list)
             """
         ave_temp = sum(temp_list) / len(temp_list)
         low_temp = min(temp_list)
         high_temp = max(temp_list)
-
-        # print(f"The average temperature was: {round(ave_temp, 1)}°F")
-        # print(f"The lowest temperature was: {round(low_temp, 1)}°F")
-        # print(f"The highest temperature was: {round(high_temp, 1)}°F")
+    
+        print(f"The average temperature was: {round(ave_temp, 1)}°F")
+        print(f"The lowest temperature was: {round(low_temp, 1)}°F")
+        print(f"The highest temperature was: {round(high_temp, 1)}°F")
 
     def print_humidity_stats(self, humidity_list: list) -> None:
-        """Outputs humidity statistics
-            
+        """Compute basic humidity statistics (avg, min, max).
+
             Args:
                 humidity_list: humidity values that were in the raw data
-            
+
             Returns:
                 None
 
             Examples:
-                >>> print_humidity_stats(humidity_list)
+                >>> self.print_humidity_stats(humidity_list)
             """
         ave_humidity = sum(humidity_list) / len(humidity_list)
         low_humidity = min(humidity_list)
         high_humidity = max(humidity_list)
 
-        # print(f"The average humidity was: {round(ave_humidity, 1)}%")
-        # print(f"The lowest humidity was: {round(low_humidity, 1)} %")
-        # print(f"The highest humidity was: {round(high_humidity, 1)}%")
+        print(f"The average humidity was: {round(ave_humidity, 1)}%")
+        print(f"The lowest humidity was: {round(low_humidity, 1)} %")
+        print(f"The highest humidity was: {round(high_humidity, 1)}%")
 
     def calculate_and_print_statistics(self, temp_list: list, humidity_list: list) -> None:
-        """calls print_temp_stats and print_humidity_stats for calculation and printing. Labels these "Weather Statistics"
-            
+        """Aggregate temperature and humidity statistics and optionally print them.
+
             Args:
                 temp_list: temperatures that were in the raw data
                 humidity_list: humidity values that were in the raw data
-            
+
             Returns:
                 None
 
             Examples:
-                >>> calculate_and_print_statistics(temp_list, humidity_list)
+                >>> self.calculate_and_print_statistics(temp_list, humidity_list)
             """
 
-        # print() # Blank line before statistics
-        # print("Weather Statistics")
-        # # Print temp data
-        # self.print_temp_stats(temp_list)
-        # print() #Blank line between temp and humidity
-        # # Print humidity data
-        # self.print_humidity_stats(humidity_list)
+        print() # Blank line before statistics
+        print("Weather Statistics")
+        # Print temp data
+        self.print_temp_stats(temp_list)
+        print() #Blank line between temp and humidity
+        # Print humidity data
+        self.print_humidity_stats(humidity_list)
 
     def print_student_name(self) -> None:
-        """Prints the students name at the beginning of output
-            
+        """Print or return the student's name used in program output.
+
             Args:
                 None
-            
+
             Returns:
                 None
 
             Examples:
-                >>> print_student_name()
+                >>> self.print_student_name()
             """
         name = "Rowland Holden"
-        # print(name) # Print student name
+        print(name) # Print student name
 
     def convert_time_stamps(self, timestamps_for_plots: defaultdict) -> defaultdict:
-        """We need to use actual data time format for the plots and not strings. 
-            This function converts the string timestamps to datetime objects for better plotting. 
-            We also need to replace the "Z" in the timestamps with "+00:00" to indicate that they 
-            are in UTC time, which is required for the fromisoformat function to work correctly.
+        """Convert ISO8601 timestamp strings to datetime objects suitable for plotting.
 
-        Args:
-            timestamps_for_plots: the dict of lists that contains the timestamps for the 
-                temp and humidity data that we want to plot
+            Args:
+                timestamps_for_plots: the dict of lists that contains the timestamps for the 
+                    temp and humidity data that we want to plot
 
-        Returns:
-            timestamps_for_plots: the same dict of lists but with the timestamps converted to 
-                datetime objects for better plotting
+            Returns:
+                timestamps_for_plots: the same dict of lists but with the timestamps converted to 
+                    datetime objects for better plotting
 
-        Examples:
-            >>> convert_time_stamps(timestamps_for_plots)
-        """
+            Examples:
+                >>> self.convert_time_stamps(timestamps_for_plots)
+            """
         for key in ["temp", "humidity"]:
             if key in timestamps_for_plots:
                 timestamps_for_plots[key] = [
@@ -574,18 +531,17 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
 
 
     def main(self) -> None:
-        """Main entry point for the program. I have always felt that the main entry point of the program shouldn't do any real
-            work other than calling functions or methods. Sometimes assign variables to pass to calls but that is 
-            about it
-            
+        """Main entry point for the program; orchestrates fetch, process and plot steps.
+
             Args:
                 None
-            
+
             Returns:
                 None
 
             Examples:
-                >>> main()
+                >>> app = RowlandNoaaWeather()
+                >>> app.main()
             """
         self.print_student_name()
         temp_list, humidity_list, timestamps_for_plots = self.init_weather_data()
@@ -600,11 +556,11 @@ class RowlandNoaaWeather: # Named as such to ensure it will never conflict with 
         self.calculate_and_print_statistics(temp_list, humidity_list)
     
     def __init__(self, zip_entry: str = "98204") -> None:
-        """called automatically when class is instanced. 
-            
+        """Called when creating the `RowlandNoaaWeather` instance.
+
             Args:
-                None
-            
+                zip_entry: ZIP code used to fetch NOAA observations (default "98204").
+
             Returns:
                 None
 
