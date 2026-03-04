@@ -72,24 +72,14 @@ Note: The noaa_weather_backend returns all available records from the Noaa stati
      The number of cloudy days is currently a placeholder and will be implemented 
      in the next step after we have the cleaned data available in the GUI.
 """
-import matplotlib
-matplotlib.use('Agg')
-print("Matplotlib backend:", matplotlib.get_backend())  # should say "agg"
-
-
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.figure import Figure
 import matplotlib.dates as mdates
 import customtkinter as ctk
 import tkinter.messagebox as messagebox
 import json
 import threading
-import os
 import gc
-
-import psutil
-import tracemalloc
-import matplotlib.pyplot as plt
 
 from noaa_weather_backend import RowlandNoaaWeather
 
@@ -117,8 +107,6 @@ class WeatherAppGUI(ctk.CTk):
             super().__init__() # Calls the parent class constructor
         """
         super().__init__()
-
-        tracemalloc.start()  # Start tracing from app launch
 
         self.title("Weather Analyzer – Rowland Holden")
         self.geometry("1000x850")
@@ -183,7 +171,7 @@ class WeatherAppGUI(ctk.CTk):
         self.forecast_header_frame = ctk.CTkFrame(self.forecast_tab)
         self.forecast_header_frame.pack(pady=5, padx=20, fill="x")
         # Forecast Frame for displaying weather forecast
-        self.forecast_frame = ctk.CTkScrollableFrame(self.forecast_tab)
+        self.forecast_frame = ctk.CTkFrame(self.forecast_tab)
         self.forecast_frame.pack(pady=5, padx=20, fill="both", expand=True)
 
         # Statistics frame header to be seperate from the grid
@@ -195,20 +183,20 @@ class WeatherAppGUI(ctk.CTk):
         self.stats_frame.pack(pady=15,padx=10)
 
         # Plot Frames for displaying generated plots
-        self.std_plot_frame = ctk.CTkFrame(self.std_plot_tab)
-        self.std_plot_frame.pack(pady=10)
+        self.std_plot_frame = ctk.CTkScrollableFrame(self.std_plot_tab)
+        self.std_plot_frame.pack(pady=10, fill="both", expand=True)
 
         self.box_plot_frame = ctk.CTkFrame(self.box_plot_tab)
-        self.box_plot_frame.pack(pady=10)
+        self.box_plot_frame.pack(pady=10, fill="both", expand=True)
 
         self.temp_hist_frame = ctk.CTkFrame(self.temp_hist_tab)
-        self.temp_hist_frame.pack(pady=10)
+        self.temp_hist_frame.pack(pady=10, fill="both", expand=True)
 
         # Raw data header frame
         self.hist_raw_data_header_frame = ctk.CTkFrame(self.hist_raw_data_tab)
         self.hist_raw_data_header_frame.pack(pady=(10,0))
         # Raw Data Frames for displaying raw data in text format
-        self.hist_raw_data_frame = ctk.CTkScrollableFrame(self.hist_raw_data_tab,width=900, height=400)
+        self.hist_raw_data_frame = ctk.CTkFrame(self.hist_raw_data_tab,width=900, height=400)
         self.hist_raw_data_frame.grid_columnconfigure(3, weight=1)    
         self.hist_raw_data_frame.pack(pady=10, padx=30, fill="both", expand=True)
 
@@ -306,18 +294,23 @@ class WeatherAppGUI(ctk.CTk):
         # By using a matplotlib figure canvas, we can directly render the plots onto the canvas without having to save them as image files and load them back into the GUI, 
         # which helps to prevent the memory leak and reduce the overall memory usage of the application. We create the figure and canvas here so we can just update the 
         # figure with new plots when fetching new data for different zip codes instead of having to destroy and recreate the canvas and figure every time.
-        # -------------STANDARD PLOT WIDGETS-------------
+
+        # ------------ STANDARD PLOT WIDGETS-------------
         # Message Label
         self.std_msg_label = ctk.CTkLabel(self.std_plot_frame, text="", font=ctk.CTkFont(family="Arial",size=16, weight="bold"), justify="center")
         self.std_msg_label.pack(pady=10, padx=20)
         # Direct creation of standard plot cavas widget
-        self.std_fig = Figure(figsize=(9, 5), dpi=100)
+        self.std_fig = Figure(figsize=(9, 7), dpi=100)
         self.std_subplot = self.std_fig.add_subplot(111)
         self.std_canvas = FigureCanvasTkAgg(self.std_fig, master=self.std_plot_frame)
+
+        # --------------Enable the right click context menu on the plot canvases for saving the plots as images--------
+        self.std_toolbar = NavigationToolbar2Tk(self.std_canvas, self.std_plot_frame)
+        self.std_toolbar.update()  # Required
+        self.std_toolbar.pack(side="top", fill="x")  # Hide the buttons, but keep menu active
+        self.std_canvas.mpl_connect("button_press_event", self.std_toolbar._on_mouse_button_press)
+
         self.std_canvas.get_tk_widget().pack(fill="both", expand=True)
-        # Image Label
-        # self.std_img_label = ctk.CTkLabel(self.std_plot_frame, image=None, text="")
-        # self.std_img_label.pack(pady=15)
         # -------------BOX PLOT WIDGETS-------------
         # Message Label
         self.box_msg_label = ctk.CTkLabel(self.box_plot_frame, text="", font=ctk.CTkFont(family="Arial",size=16, weight="bold"), justify="center")
@@ -327,9 +320,6 @@ class WeatherAppGUI(ctk.CTk):
         self.box_subplot = self.box_fig.add_subplot(111)
         self.box_canvas = FigureCanvasTkAgg(self.box_fig, master=self.box_plot_frame)
         self.box_canvas.get_tk_widget().pack(fill="both", expand=True)
-        # Image Label
-        # self.box_img_label = ctk.CTkLabel(self.box_plot_frame, image=None, text="")
-        # self.box_img_label.pack(pady=15)
         # -------------TEMPERATURE HISTOGRAM WIDGETS-------------
         # Message Label
         self.temp_hist_msg_label = ctk.CTkLabel(self.temp_hist_frame, text="", font=ctk.CTkFont(family="Arial",size=16, weight="bold"), justify="center")
@@ -340,10 +330,21 @@ class WeatherAppGUI(ctk.CTk):
         self.hist_canvas = FigureCanvasTkAgg(self.fig_hist, master=self.temp_hist_frame)
         self.hist_canvas.get_tk_widget().pack(fill="both", expand=True)
 
-        # Image Label and image control
-        # self.temp_hist_img_ctl = ctk.CTkImage(light_image=None, dark_image=None, size=(0, 0))
-        # self.temp_hist_img_label = ctk.CTkLabel(self.temp_hist_frame, image=None, text="")
-        # self.temp_hist_img_label.pack(pady=15)
+        # --------------Enable the right click context menu on the plot canvases for saving the plots as images--------
+        self.std_toolbar = NavigationToolbar2Tk(self.std_canvas, self.std_plot_frame)
+        self.std_toolbar.update()  # Required
+        self.std_toolbar.pack(side="top", fill="x")  # Hide the buttons, but keep menu active
+
+        # Box Plot toolbar
+        self.box_toolbar = NavigationToolbar2Tk(self.box_canvas, self.box_plot_frame)
+        self.box_toolbar.update()
+        self.box_toolbar.pack_forget()
+
+        # Histogram toolbar
+        self.hist_toolbar = NavigationToolbar2Tk(self.hist_canvas, self.temp_hist_frame)
+        self.hist_toolbar.update()
+        self.hist_toolbar.pack_forget()
+        #-------  END PLOT SECTION -------
 
         # Raw Forecast Data header
         self.forecast_raw_data_lable = ctk.CTkLabel(self.forecast_raw_data_frame, text="Raw Forecast Data (JSON format)", font=ctk.CTkFont("Arial", size=20, weight="bold"))
@@ -444,12 +445,6 @@ class WeatherAppGUI(ctk.CTk):
         Examples:
             start_fetch_thread()
         """
-
-        # Snapshot before starting
-        snapshot_before = tracemalloc.take_snapshot()
-        current, peak = tracemalloc.get_traced_memory()
-        print(f"[START FETCH] Current: {current / 1024 / 1024:.1f} MB | Peak: {peak / 1024 / 1024:.1f} MB")
-
         # Update stuatus label to indicate data fetching
         self.status_label.configure(text="Fetching data...", text_color="orange")
         self.update_idletasks()  # Ensure the status label updates immediately
@@ -545,7 +540,6 @@ class WeatherAppGUI(ctk.CTk):
             generate_plots()
         """
         self.backend.create_plots(self.temp_list, self.humidity_list, self.timestamps)
-        plt.close('all')  # Close all figures to free memory
         gc.collect()  # Force garbage collection to free memory used by the plots
 
     def run_analysis(self) -> None:
@@ -565,9 +559,6 @@ class WeatherAppGUI(ctk.CTk):
             self.backend.zip_code = "98204"  # Default ZIP code if none provided
         else:
             self.backend.zip_code = self.zip_entry.get().strip()
-
-        process = psutil.Process()
-        print(f"[START FETCH FROM PSUTIL] Memory: {process.memory_info().rss / 1024 / 1024:.1f} MB | Open figures: {len(plt.get_fignums())}")
 
         try:
             self.get_data()
@@ -818,22 +809,6 @@ class WeatherAppGUI(ctk.CTk):
 
         # Update status label to indicate success
         self.status_label.configure(text="Analysis complete", text_color="green")
-
-
-        # Snapshot after everything
-        snapshot_after = tracemalloc.take_snapshot()
-        current, peak = tracemalloc.get_traced_memory()
-        print(f"[END FETCH] Current: {current / 1024 / 1024:.1f} MB | Peak: {peak / 1024 / 1024:.1f} MB")
-
-        # Compare to previous snapshot (if you keep the before snapshot)
-        # top_stats = snapshot_after.compare_to(snapshot_before, 'lineno')
-        # print("[Top 5 new allocations this fetch]")
-        # for stat in top_stats[:5]:
-        #     print(stat)
-
-        gc.collect()
-        current_after_gc, _ = tracemalloc.get_traced_memory()
-        print(f"[AFTER GC] Current: {current_after_gc / 1024 / 1024:.1f} MB")
 
     def showerror(self, message: str) -> None:
         """ Called from run_analysis if an exception occurs during data fetching or analysis, it displays an error message to the user in a 

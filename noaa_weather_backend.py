@@ -34,11 +34,6 @@ Note: The NOAA API returns all available observations in the requested time wind
     (typically several hundred for ~10 days, depending on station reporting frequency—e.g., hourly or more frequent). 
     Not guaranteed to cover full 10 days if data is sparse.
 """
-
-import matplotlib
-matplotlib.use('Agg')
-print("Matplotlib backend:", matplotlib.get_backend())  # should say "agg"
-
 from noaa_sdk import noaa
 from collections import defaultdict
 from uszipcode import SearchEngine
