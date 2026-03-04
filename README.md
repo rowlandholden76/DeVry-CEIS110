@@ -40,4 +40,4 @@ A second leak was also discovered: a thread leak. By switching from standard thr
 - System-level memory showed 10-15MB growth per fetch
 - The leak originated when opening plot files (GDI objects)
 
-**Solution:** Rendering plots directly in the GUI instead of opening saved files eliminated the leak. Current performance shows minor memory growth (~1-3MB per fetch) after many refreshes due to Tkinter/matplotlib internals, stabilizing after 10-15 fetches.
+**Solution:** Rendering plots directly in the GUI instead of opening saved files, and changing from standard threading to a thread pool eliminated the leak. Current performance shows stable memory (167MB ±3MB) after many fetches.
