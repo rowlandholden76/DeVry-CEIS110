@@ -76,9 +76,12 @@ import matplotlib
 matplotlib.use('Agg')
 print("Matplotlib backend:", matplotlib.get_backend())  # should say "agg"
 
+
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.figure import Figure
+import matplotlib.dates as mdates
 import customtkinter as ctk
 import tkinter.messagebox as messagebox
-from PIL import Image, ImageTk
 import json
 import threading
 import os
@@ -297,30 +300,50 @@ class WeatherAppGUI(ctk.CTk):
         self.humid_stats.grid(row=0, column=1, padx=40, pady=10, sticky="w")
 
         # -------PLOT WIDGETS-------
+        # We are using a matplotlib figure canvas to display the plots instead of an image label because it is more efficient and uses less memory 
+        # than loading the plot images as separate files and then displaying them in image labels. This was causing a native memory leak that was 
+        # not being resolved by garbage collection, even after closing the figures and deleting the image objects, the memory used by the images was not being freed.
+        # By using a matplotlib figure canvas, we can directly render the plots onto the canvas without having to save them as image files and load them back into the GUI, 
+        # which helps to prevent the memory leak and reduce the overall memory usage of the application. We create the figure and canvas here so we can just update the 
+        # figure with new plots when fetching new data for different zip codes instead of having to destroy and recreate the canvas and figure every time.
         # -------------STANDARD PLOT WIDGETS-------------
         # Message Label
         self.std_msg_label = ctk.CTkLabel(self.std_plot_frame, text="", font=ctk.CTkFont(family="Arial",size=16, weight="bold"), justify="center")
         self.std_msg_label.pack(pady=10, padx=20)
-        # Image Label and image control
-        # self.std_img_ctl = ctk.CTkImage(light_image=None, dark_image=None, size=(0, 0))
-        self.std_img_label = ctk.CTkLabel(self.std_plot_frame, image=None, text="")
-        self.std_img_label.pack(pady=15)
+        # Direct creation of standard plot cavas widget
+        self.std_fig = Figure(figsize=(9, 5), dpi=100)
+        self.std_subplot = self.std_fig.add_subplot(111)
+        self.std_canvas = FigureCanvasTkAgg(self.std_fig, master=self.std_plot_frame)
+        self.std_canvas.get_tk_widget().pack(fill="both", expand=True)
+        # Image Label
+        # self.std_img_label = ctk.CTkLabel(self.std_plot_frame, image=None, text="")
+        # self.std_img_label.pack(pady=15)
         # -------------BOX PLOT WIDGETS-------------
         # Message Label
         self.box_msg_label = ctk.CTkLabel(self.box_plot_frame, text="", font=ctk.CTkFont(family="Arial",size=16, weight="bold"), justify="center")
         self.box_msg_label.pack(pady=10, padx=20)
-        # Image Label and image control
-        # self.box_img_ctl = ctk.CTkImage(light_image=None, dark_image=None, size=(0, 0))
-        self.box_img_label = ctk.CTkLabel(self.box_plot_frame, image=None, text="")
-        self.box_img_label.pack(pady=15)
+        # Direct creation of box plot canvas widget
+        self.box_fig = Figure(figsize=(7, 5), dpi=100   )
+        self.box_subplot = self.box_fig.add_subplot(111)
+        self.box_canvas = FigureCanvasTkAgg(self.box_fig, master=self.box_plot_frame)
+        self.box_canvas.get_tk_widget().pack(fill="both", expand=True)
+        # Image Label
+        # self.box_img_label = ctk.CTkLabel(self.box_plot_frame, image=None, text="")
+        # self.box_img_label.pack(pady=15)
         # -------------TEMPERATURE HISTOGRAM WIDGETS-------------
         # Message Label
         self.temp_hist_msg_label = ctk.CTkLabel(self.temp_hist_frame, text="", font=ctk.CTkFont(family="Arial",size=16, weight="bold"), justify="center")
         self.temp_hist_msg_label.pack(pady=10, padx=20)
+        # Direct creation of temperature histogram canvas widget
+        self.fig_hist = Figure(figsize=(7, 5), dpi=100)
+        self.hist_subplot = self.fig_hist.add_subplot(111)
+        self.hist_canvas = FigureCanvasTkAgg(self.fig_hist, master=self.temp_hist_frame)
+        self.hist_canvas.get_tk_widget().pack(fill="both", expand=True)
+
         # Image Label and image control
         # self.temp_hist_img_ctl = ctk.CTkImage(light_image=None, dark_image=None, size=(0, 0))
-        self.temp_hist_img_label = ctk.CTkLabel(self.temp_hist_frame, image=None, text="")
-        self.temp_hist_img_label.pack(pady=15)
+        # self.temp_hist_img_label = ctk.CTkLabel(self.temp_hist_frame, image=None, text="")
+        # self.temp_hist_img_label.pack(pady=15)
 
         # Raw Forecast Data header
         self.forecast_raw_data_lable = ctk.CTkLabel(self.forecast_raw_data_frame, text="Raw Forecast Data (JSON format)", font=ctk.CTkFont("Arial", size=20, weight="bold"))
@@ -521,7 +544,7 @@ class WeatherAppGUI(ctk.CTk):
         Examples:
             generate_plots()
         """
-        #self.backend.create_plots(self.temp_list, self.humidity_list, self.timestamps)
+        self.backend.create_plots(self.temp_list, self.humidity_list, self.timestamps)
         plt.close('all')  # Close all figures to free memory
         gc.collect()  # Force garbage collection to free memory used by the plots
 
@@ -685,28 +708,58 @@ class WeatherAppGUI(ctk.CTk):
         """
         message = self.print_records_message()
         for plot_name in ["weather.png", "boxplot.png", "temperature_histogram.png"]:
-            if os.path.exists(plot_name):
-                try:
-                    with Image.open(plot_name) as img:
-                        img.thumbnail((700, 500))  # reasonable max size
-                        photo = ImageTk.PhotoImage(img)
+            try:
+                # with Image.open(plot_name) as img:
+                #     img.thumbnail((700, 500))  # reasonable max size
+                #     photo = ImageTk.PhotoImage(img)
 
-                        if plot_name == "weather.png":
-                            self.std_msg_label.configure(text=message)  # Update the message above the standard plot
-                            self.std_img_label.configure(image=photo)
-                            self.std_img_label.image = photo  # Keep a reference to prevent garbage collection
-                        elif plot_name == "boxplot.png":
-                            self.box_msg_label.configure(text=message)  # Update the message above the box plot
-                            self.box_img_label.configure(image=photo)
-                            self.box_img_label.image = photo  # Keep a reference to prevent garbage collection
-                        elif plot_name == "temperature_histogram.png":
-                            self.temp_hist_msg_label.configure(text=message)  # Update the message above the temperature histogram
-                            self.temp_hist_img_label.configure(image=photo)
-                            self.temp_hist_img_label.image = photo  # Keep a reference to prevent garbage collection
-                
-                        img.close()  # Close the image file after loading it into the label
-                except:
-                    pass
+                if plot_name == "weather.png":
+                    self.std_msg_label.configure(text=message)
+                    self.std_msg_label.configure(text=message)
+                    self.std_subplot.clear()
+                    self.std_subplot.plot(self.timestamps["temp"], self.temp_list, label="Temperature (°F)", color="red", linewidth=1.5)
+                    self.std_subplot.plot(self.timestamps["humidity"], self.humidity_list, label="Humidity (%)", color="blue", linewidth=1.5)
+                    self.std_subplot.legend(loc="upper right")
+                    self.std_subplot.set_title(f"Temperature and Humidity Over Time (ZIP {self.backend.zip_code})")
+                    self.std_subplot.set_xlabel("Observation Time")
+                    self.std_subplot.set_ylabel("Value")
+                    self.std_subplot.xaxis.set_major_locator(mdates.AutoDateLocator(maxticks=15))
+                    self.std_subplot.xaxis.set_major_formatter(mdates.DateFormatter('%m-%d %H:%M'))
+                    self.std_subplot.tick_params(axis='x', rotation=45, labelsize=9)
+                    self.std_subplot.grid(True, linestyle='--', alpha=0.5)
+                    self.std_canvas.draw()
+                elif plot_name == "boxplot.png":
+                    self.box_msg_label.configure(text=message)
+                    self.box_subplot.clear()
+                    self.box_subplot.boxplot([self.temp_list, self.humidity_list], tick_labels=["Temperature (°F)", "Humidity (%)"], 
+                                                patch_artist=True, boxprops=dict(facecolor='lightblue', color='blue'), medianprops=dict(color='red'))
+                    self.box_subplot.set_title(f"Temperature and Humidity Distribution (ZIP {self.backend.zip_code})")
+                    self.box_canvas.draw()
+                    # self.box_msg_label.configure(text=message)  # Update the message above the box plot
+                    # self.box_img_label.configure(image=photo)
+                    # self.box_img_label.image = photo  # Keep a reference to prevent garbage collection
+                elif plot_name == "temperature_histogram.png":
+                    self.temp_hist_msg_label.configure(text=message)  # Update the message above the temperature histogram
+                    self.hist_subplot.clear()
+                    self.hist_subplot.hist(self.temp_list, bins=10, color='salmon', edgecolor='black', alpha=0.7)
+                    self.hist_subplot.set_title(f"Temperature Distribution (ZIP {self.backend.zip_code})") 
+                    self.hist_subplot.set_xlabel("Temperature (°F)")
+                    self.hist_subplot.set_ylabel("Frequency")
+                    self.hist_canvas.draw() 
+                    # self.temp_hist_img_label.configure(image=photo)
+                    # self.temp_hist_img_label.image = photo  # Keep a reference to prevent garbage collection
+
+                    # self.hist_msg_label.configure(text=message)
+                    # self.ax_hist.clear()
+                    # self.ax_hist.hist(self.temp_list, bins=10, color="red", alpha=0.7)
+                    # self.ax_hist.set_title(f"Temperature Distribution (ZIP {self.backend.zip_code})")
+                    # self.ax_hist.set_xlabel("Temperature (°F)")
+                    # self.ax_hist.set_ylabel("Frequency")
+                    # self.canvas_hist.draw()
+        
+                #img.close()  # Close the image file after loading it into the label
+            except:
+                pass
 
     def update_hist_raw_data_tab(self) -> None:
         """ Called from show_results, it updates the historical raw data tab by first creating the headers for the raw data display by calling the 
@@ -759,7 +812,7 @@ class WeatherAppGUI(ctk.CTk):
         # Update GUI with new data and plots
         self.update_forecast_tab()
         self.update_stats_tab()
-        #self.update_plots()
+        self.update_plots()
         self.update_hist_raw_data_tab()
         self.update_forecast_raw_data_tab()
 
