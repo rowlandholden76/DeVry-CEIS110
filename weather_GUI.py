@@ -79,7 +79,6 @@ import matplotlib.dates as mdates
 import customtkinter as ctk
 import tkinter.messagebox as messagebox
 import json
-import threading
 import gc
 
 from noaa_weather_backend import RowlandNoaaWeather
