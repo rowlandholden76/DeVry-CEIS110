@@ -19,3 +19,4 @@ scripts/
 *.tmp
 remaining_issues.txt
 .flake8
+GIT-CHEATS.md
