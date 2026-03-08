@@ -19,4 +19,3 @@ scripts/
 *.tmp
 remaining_issues.txt
 .flake8
-.gitignore
