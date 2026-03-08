@@ -10,16 +10,18 @@ class HoldenRowlandCalculator:
     _OPERATORS = ["*", "/", "+", "-", "^", "%"]
 
     def evaluate_expression(self, expr: str) -> str:
-        """recursively calculates: sub-expressions inside parenthesis and simple expressions found in the entered
-        expression then replaces the answer of the sub-expression with the answer in the entered expression and
-        calls itself again with the modified expression. This is repeated until there are no more operators left in the expression
+        """recursively calculates: sub-expressions inside parenthesis and simple
+            expressions found in the entered expression then replaces the answer
+            of the sub-expression with the answer in the entered expression and
+            calls itself again with the modified expression. This is repeated until
+            there are no more operators left in the expression
 
         Args:
             expr (string): entered expression
 
         Returns:
-            string: altered expression and calls itself again until a final result is reached. Once reached, this result
-            is returned to the caller.
+            string: altered expression and calls itself again until a final result
+                is reached. Once reached, this resultis returned to the caller.
 
         Examples:
             >>> self.evaluate_expression("15+(9*2)")
@@ -50,14 +52,14 @@ class HoldenRowlandCalculator:
                 break
 
         # Extract inner content
-        inner_expr = expr[target_open + 1 : target_close]
+        inner_expr = expr[target_open + 1: target_close]
 
         #  Calculate the inner expression
         inner_result = self.calculate(inner_expr, True)
 
         # Replace the bracketed part with the evaluated result
         new_expr_with_simplified_answer_replacement = (
-            expr[:target_open] + str(inner_result) + expr[target_close + 1 :]
+            expr[:target_open] + str(inner_result) + expr[target_close + 1:]
         )
 
         # Recursively call with the updated string
@@ -164,7 +166,8 @@ class HoldenRowlandCalculator:
             pos_operator (int): position of operator that should be solved for
 
         Returns:
-            tuple: string, int, int: sub expression to solve for, left most position of the sub expression in the overall expression,
+            tuple: string, int, int: sub expression to solve for, left most
+                position of the sub expression in the overall expression,
                 right most position of the sub expression in the overall expression.
 
         Examples:
@@ -195,10 +198,85 @@ class HoldenRowlandCalculator:
 
         return sub_exp, left, right
 
-    add = lambda self, num_1=0, num_2=0: num_1 + num_2
-    sub = lambda self, num_1=0, num_2=0: num_1 - num_2
-    float_div = lambda self, num_1=1, num_2=1: num_1 / num_2
-    mult = lambda self, num_1=1, num_2=1: num_1 * num_2
+    def add(self, num_1=0, num_2=0) -> float:
+        """Performs the actual math on the single operator expressions that are passed
+            to it using the lambda expressions above the function definition.
+
+        Args:
+            first_num (float): first number of the expression
+            second_num (float): second number of the expression
+            operator (string): the operator character from the expression
+
+        Returns:
+            float: answer to the expression that was passed
+
+        Examples:
+            >>> self.do_the_math("9*2")
+            18.0
+            >>> self.do_the_math("15+18.0")
+            33.0
+        """
+        return num_1 + num_2
+
+    def sub(self, num_1=0, num_2=0) -> float:
+        """Performs the actual math on the single operator expressions that are passed
+        to it using the lambda expressions above the function definition.
+
+        Args:
+            first_num (float): first number of the expression
+            second_num (float): second number of the expression
+            operator (string): the operator character from the expression
+
+        Returns:
+            float: answer to the expression that was passed
+
+        Examples:
+            >>> self.do_the_math("9*2")
+            18.0
+            >>> self.do_the_math("15+18.0")
+            33.0
+        """
+        return num_1 - num_2
+
+    def float_div(self, num_1=1, num_2=1) -> float:
+        """Performs the actual math on the single operator expressions that are passed
+        to it using the lambda expressions above the function definition.
+
+        Args:
+            first_num (float): first number of the expression
+            second_num (float): second number of the expression
+            operator (string): the operator character from the expression
+
+        Returns:
+            float: answer to the expression that was passed
+
+        Examples:
+            >>> self.do_the_math("9*2")
+            18.0
+            >>> self.do_the_math("15+18.0")
+            33.0
+        """
+        return num_1 / num_2
+
+    def mult(self, num_1=1, num_2=1) -> float:
+        """Performs the actual math on the single operator expressions that are passed
+        to it using the lambda expressions above the function definition.
+
+        Args:
+            first_num (float): first number of the expression
+            second_num (float): second number of the expression
+            operator (string): the operator character from the expression
+
+        Returns:
+            float: answer to the expression that was passed
+
+        Examples:
+            >>> self.do_the_math("9*2")
+            18.0
+            >>> self.do_the_math("15+18.0")
+            33.0
+        """
+        return num_1 * num_2
 
     def do_the_math(self, first_num: float, second_num: float, operator: str) -> float:
         """Performs the actual math on the single operator expressions that are passed
@@ -232,8 +310,8 @@ class HoldenRowlandCalculator:
                 if second_num == 0:
                     raise CalculatorError(
                         (
-                            f"Division by zero encountered while calculating: {first_num} / {second_num}"
-                            f". Setting answer to 0.0"
+                            f"Division by zero encountered while calculating: "
+                            f"{first_num} / {second_num}. Setting answer to 0.0"
                         )
                     )
 
@@ -242,8 +320,8 @@ class HoldenRowlandCalculator:
                 if second_num == 0:
                     raise CalculatorError(
                         (
-                            f"Modulo by zero encountered while calculating: {first_num} % {second_num}"
-                            f". Setting answer to 0.0"
+                            f"Modulo by zero encountered while calculating: "
+                            f"{first_num} % {second_num}. Setting answer to 0.0"
                         )
                     )
 
@@ -337,7 +415,8 @@ class HoldenRowlandCalculator:
             op (int): position of the operator for the expression
 
         Returns:
-            tuple float, float, str: returns the first number, second number and the operator character
+            tuple float, float, str: returns the first number, second number
+                and the operator character
 
         Examples:
             >>> self.get_elements("9+2", 0, 3, 1)
@@ -347,22 +426,24 @@ class HoldenRowlandCalculator:
         """
 
         first = float(expr[left:op])
-        second = float(expr[op + 1 : right])
-        operator = expr[op : op + 1]
+        second = float(expr[op + 1: right])
+        operator = expr[op: op + 1]
 
         return first, second, operator
 
     def calculate(self, expr: str, is_paren_exp: bool) -> str:
         """Calculates the expression passed to it. It is either the entered expression
-        or the expression in parenthesis, main function for handling calculations from
-        sub-expresions.
+            or the expression in parenthesis, main function for handling calculations
+            from sub-expressions.
 
         Args:
             expr (string): entered expression or parenthesis expression
-            is_paren_exp (bool): flags if this is an expression from a parenthesis or not (controls step by step output)
+                is_paren_exp (bool): flags if this is an expression from a parenthesis
+                or not (controls step by step output)
 
         Returns:
-            string: returns modified expr replacing any sub-expressions that were solved with their answers
+            string: returns modified expr replacing any sub-expressions that were solved
+                with their answers
 
         Examples:
             >>> self.calculate("9*5",True)
@@ -409,10 +490,13 @@ class HoldenRowlandCalculator:
             if answer.is_integer():
                 answer = int(answer)  # convert to int if no decimal portion
 
+            # replace the math problem we just answered with the actual answer in
+            # the original expression
             expr = expr.replace(
                 sub_exp, str(answer)
-            )  # replace the math problem we just answered with the actual answer in the original expression
-            if is_paren_exp == False:
+            )
+
+            if not is_paren_exp:
                 print(expr)
 
         return expr
@@ -422,7 +506,7 @@ class HoldenRowlandCalculator:
             if each == "+":
                 prev_each = expr[i - 1]
                 if prev_each in self._OPERATORS:
-                    expr = expr[:i] + expr[i + 1 :]
+                    expr = expr[:i] + expr[i + 1:]
 
         return expr
 
@@ -460,9 +544,10 @@ class HoldenRowlandCalculator:
             expr (string): the string that we are validating
 
         Returns:
-            tuple bool, bool, string: returns a tuple with the first value being if the parenthesis are balanced and
-                the second value being if there is an ambiguous parenthesis and the third value being the potentially modified expression
-                from fix_double_neg_at_beg_of_expr.
+            tuple bool, bool, string: returns a tuple with the first value being if the
+                parenthesis are balanced and the second value being if there is an
+                ambiguous parenthesis and the third value being the potentially modified
+                expression from fix_double_neg_at_beg_of_expr.
 
         Examples:
             >>> is_balanced_paren("4*(5+2)")
@@ -485,13 +570,14 @@ class HoldenRowlandCalculator:
         how the check_paren flag is set.
 
         Args:
-            expr (string): the string that we are validating
-            check_paren (bool): flag to check for balanced parenthesis or ambiguous parenthesis
+            expr (string): the string that we are validating check_paren (bool): flag
+                to check for balanced parenthesis or ambiguous parenthesis
 
         Returns:
-            tuple bool, string: returns a tuple with the first value being if the parenthesis are balanced or
-                if there is an ambiguous parenthesis based on the chck_paren flag and the second value being
-                the expression passed in.
+            tuple bool, string: returns a tuple with the first value being if the
+                parenthesis are balanced or if there is an ambiguous parenthesis
+                based on the chck_paren flag and the second value being the expression
+                passed in.
 
         Examples:
             >>> return_bal_paren_and_ambiguous("4*(5+2)", True)
@@ -508,7 +594,7 @@ class HoldenRowlandCalculator:
                 stack.append(char)
 
                 # Check for Ambiguous expressions like 4(5+2) or (5+2)4
-                if i - 1 >= 0 and check_paren == False:
+                if i - 1 >= 0 and not check_paren:
                     if expr[i - 1].isdigit():
                         result = True
                         return result, expr
@@ -523,7 +609,7 @@ class HoldenRowlandCalculator:
 
             elif char in pairs:
                 if i + 1 <= len(expr) - 1:  # closing: ), ], }
-                    if expr[i + 1].isdigit() and check_paren == False:
+                    if expr[i + 1].isdigit() and not check_paren:
                         result = True
                         return result, expr
 
@@ -531,7 +617,7 @@ class HoldenRowlandCalculator:
                     result = False
                     return result, expr
 
-        if len(stack) == 0 and check_paren == True:
+        if len(stack) == 0 and check_paren:
             result = True
         return result, expr
 
@@ -574,7 +660,8 @@ class HoldenRowlandCalculator:
             open_paren_pos (int): position of the opening parenthesis
 
         Returns:
-            tuple string, bool: returns the modified expression and a flag indicating if a change was made
+            tuple string, bool: returns the modified expression and a flag indicating
+                if a change was made
 
         Examples:
             >>> fix_double_neg_at_beg_of_expr("4*(5+2)", 1)
@@ -609,7 +696,8 @@ class HoldenRowlandCalculator:
             >>> is_valid_input("5*7+(4/2)")
             "valid"
             >>> is_valid_input("5*7a+(4/2)")
-            ("invalid input, please only use 0-9 . + - * / ( )[]{}^% characters only for" "the expression.")
+            ("invalid input, please only use 0-9 . + - * / ( )[]{}^% characters only
+                for" "the expression.")
         """
         valid = "1234567890.()+-*/[]{}^%"
         div_by_0 = ["/0", "%0"]
@@ -624,8 +712,8 @@ class HoldenRowlandCalculator:
         if not all(char in valid for char in input_to_validate):
             print(
                 (
-                    "invalid input, please only use 0-9 . + - * / ( )[]{}^% characters only"
-                    "for the expression."
+                    "invalid input, please only use 0-9 . + - * / ( )[]{}^% "
+                    "characters only for the expression."
                 )
             )
             val = False
@@ -639,16 +727,16 @@ class HoldenRowlandCalculator:
         # digit paren
         if val and any(char in input_to_validate for char in "[]{}()"):
             val, input_to_validate = self.is_balanced_paren(input_to_validate)
-            if val == False:
+            if not val:
                 print("Parenthesis mis-match")
 
         if val and any(char in input_to_validate for char in "[]{}()"):
             result = self.is_ambiguous(input_to_validate)
-            if result == True:
+            if result:
                 print(
                     (
-                        "Ambiguous parenthesis detected - operator required before and/or"
-                        "after parenthesis to avoid ambiguity"
+                        "Ambiguous parenthesis detected - operator required before "
+                        "and/or after parenthesis to avoid ambiguity"
                     )
                 )
                 val = False
@@ -683,7 +771,8 @@ class HoldenRowlandCalculator:
             expr (string): the string that we are checking
 
         Returns:
-            bool: returns true if all numbers are valid for calculation, false otherwise.
+            bool: returns true if all numbers are valid for calculation,
+                false otherwise.
 
         Examples:
             >>> is_valid_numbers("-5*7+(4/2)")
@@ -747,7 +836,8 @@ class HoldenRowlandCalculator:
             expr (string): the string that we are checking
 
         Returns:
-            bool: returns true if there is a leading or trailing operator, false otherwise.
+            bool: returns true if there is a leading or trailing operator,
+            false otherwise.
 
         Examples:
             >>> has_leading_or_trailing_op("-5*7+(4/2)")
@@ -871,5 +961,6 @@ class HoldenRowlandCalculator:
         pass
 
 
-calc = HoldenRowlandCalculator()
-calc.main()
+if __name__ == "__main__":
+    calc = HoldenRowlandCalculator()
+    calc.main()

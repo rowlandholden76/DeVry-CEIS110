@@ -20,3 +20,4 @@ scripts/
 remaining_issues.txt
 .flake8
 GIT-CHEATS.md
+tests/test_calculator.py

@@ -5,22 +5,24 @@ WeatherAppGUI Class
 Author:    Rowland Holden
 Date:      Feb 23, 2026
 Course:    CEIS 101 - Final Project (Enhanced)
-Purpose:   Provides a gui for fetching and analyzing NOAA weather data for a specified ZIP code, with
-            visualizations and statistics.
+Purpose:   Provides a GUI for fetching and analyzing NOAA weather data for a specified
+           ZIP code, with visualizations and statistics.
 
-A comprehensive GUI application for fetching, analyzing, and visualizing NOAA weather data and forecasts.
-This class creates a multi-tabbed interface using customtkinter that allows users to:
+A comprehensive GUI application for fetching, analyzing, and visualizing NOAA weather
+data and forecasts. This class creates a multi-tabbed interface using customtkinter that
+allows users to:
 - Input a ZIP code and fetch weather data from NOAA stations
 - View 14-day weather forecasts
 - Display historical weather statistics (temperature and humidity)
 - Generate and view various data visualizations (line plots, box plots, histograms)
 - Examine raw data from both NOAA observations and forecasted data in JSON view
 
-The application uses threading to prevent GUI blocking during data fetching operations and
-provides real-time status updates to the user.
+The application uses threading to prevent GUI blocking during data fetching operations
+and provides real-time status updates to the user.
 Attributes:
-    backend (RowlandNoaaWeather): Instance of the backend class for data fetching and processing
-        tabs
+    backend (RowlandNoaaWeather): Instance of the backend class for data fetching
+        and processing
+    tabs
     (ctk.CTkTabview): Tabview container for organizing different data views
     title_label (ctk.CTkLabel): Main title label for the application
     input_frame (ctk.CTkFrame): Frame containing ZIP code input and fetch button
@@ -65,8 +67,9 @@ Output Files:
 - boxplot.png          : Box plot comparison
 - temperature_histogram.png : Temperature distribution
 
-Note: The noaa_weather_backend returns all available records from the Noaa stations for the various zip codes
-     in the requested time window noaa stations have data for.
+Note: The noaa_weather_backend returns all available records from the Noaa stations
+    for the various ZIP codes in the requested time window that stations have
+    data for.
      The backend is currently hard-coded to fetch data for ZIP code 98204,
      but the GUI is designed to allow dynamic input of ZIP codes in the future.
      The number of cloudy days is currently a placeholder and will be implemented
@@ -120,9 +123,9 @@ class WeatherAppGUI(ctk.CTk):
         self.minsize(900, 700)
 
         self.backend = RowlandNoaaWeather()
-        self.executor = ThreadPoolExecutor(
-            max_workers=1
-        )  # 1 worker = sequential fetches (prevents thread buildup if user clicks fetch multiple times quickly)
+        # 1 worker = sequential fetches (prevents thread buildup if user
+        # clicks fetch multiple times quickly)
+        self.executor = ThreadPoolExecutor(max_workers=1)
 
         # The tab view will never be destroyed when reseting for new zip, create it
         # here.
@@ -224,14 +227,15 @@ class WeatherAppGUI(ctk.CTk):
         self.forecast_raw_data_frame.pack(pady=10, padx=30, fill="both", expand=True)
 
     def create_widgets(self) -> None:
-        """Creates all the widgets (calls create_tabs, create_frames to create those
-        widgets as well) and assigns them to instance variables so they can be accessed
-        later when populating the tabs with data and plots also places them the
-        appropriate tab.
+        """Creates all widgets and assigns them to instance variables so they can be
+        accessed later when populating the tabs with data and plots. This method also
+        calls `create_tabs` and `create_frames` to initialize those containers and then
+        places widgets on the appropriate tab.
 
-            calls an if statement a number of times because of the way we are resetting the gui when fetching new data for a different zip code,
-            we want to only create the widgets that were destroyed during the reset process (not all were, like the frames, and static ones like window header, input area
-            and status label).
+        The GUI is reset when fetching new data for a different ZIP code. To avoid
+        recreating static widgets (for example: frames, window header, input area, and
+        status label) this method only creates widgets that were removed during the
+        reset process.
 
         Args:
             None
@@ -536,7 +540,8 @@ class WeatherAppGUI(ctk.CTk):
         if hasattr(self, "hist_raw_textbox") and self.hist_raw_textbox is not None:
             self.hist_raw_textbox.delete("1.0", "end")
 
-        gc.collect()  # Force garbage collection to free memory used by the destroyed widgets
+        # Force garbage collection to free memory used by the destroyed widgets
+        gc.collect()
 
     def start_fetch_thread(self) -> None:
         """Activated when the user clicks the "Fetch & Analyze" button. It updates the
@@ -609,7 +614,8 @@ class WeatherAppGUI(ctk.CTk):
             None
 
         Returns:
-            int: The number of unique days represented in the timestamps of the noaa data records.
+            int: Number of unique days represented in the timestamps of the
+                NOAA data records.
 
         Examples:
             get_unique_days()
@@ -687,9 +693,9 @@ class WeatherAppGUI(ctk.CTk):
         try:
             self.get_data()
 
-            self.after(
-                0, self.generate_plots
-            )  # Schedule the plot generation to run in the main thread after data is fetched and processed
+            # Schedule the plot generation to run in the main thread after data
+            # is fetched and processed
+            self.after(0, self.generate_plots)
             self.after(
                 0, self.show_results
             )  # Schedule the GUI update to run in the main thread
@@ -713,7 +719,10 @@ class WeatherAppGUI(ctk.CTk):
         """
 
         # Fixed-width columns
-        header_line = f"{'Date':<17} {'Temperature (°F)':<18} {'Description':<45} {'Chance of Rain'}\n"
+        header_line = (
+                f"{'Date':<17} {'Temperature (°F)':<18} "
+                f"{'Description':<45} {'Chance of Rain'}\n"
+            )
         header_seperator = "-" * 95 + "\n"
         self.forecast_textbox.insert("end", header_line)
         self.forecast_textbox.insert("end", header_seperator)
@@ -752,8 +761,9 @@ class WeatherAppGUI(ctk.CTk):
         self.forecast_textbox.see("1.0")
 
     def update_forecast_tab(self) -> None:
-        """Called from show_results, it updates the forecast tab by calling the configure_forecast_data method that creates
-            the headers and populates the tab with the forecast data received from the API.
+        """Called from `show_results`. Updates the forecast tab by calling
+        `configure_forecast_data` which creates the headers and populates the tab
+        with the forecast data received from the API.
         Args:
             None
 
@@ -766,8 +776,8 @@ class WeatherAppGUI(ctk.CTk):
         self.configure_forecast_data()
 
     def update_stats_tab(self) -> None:
-        """Called from show_results, it creates labels to display the statistics for the historical data,
-            including the average, minimum, and maximum temperature and humidity,
+        """Called from `show_results`. Creates labels to display historical statistics
+        including average, minimum, and maximum temperature and humidity.
         Args:
             None
 
@@ -780,25 +790,28 @@ class WeatherAppGUI(ctk.CTk):
         message = self.print_records_message()
         self.records_label.configure(text=message)
         self.cloudy_label.configure(
-            text=f"Cloudy days in last {self.get_unique_days()} days: {self.backend.cloudy_days}"
+            text=(
+                f"Cloudy days in last {self.get_unique_days()} days: "
+                f"{self.backend.cloudy_days}"
+            )
         )
         self.temp_stats.configure(
             text="Temperature Statistics\n"
-            + f"Avg: {round(sum(self.temp_list)/len(self.temp_list),1)}°F\n"
-            + f"Min: {round(min(self.temp_list),1)}°F\n"
-            + f"Max: {round(max(self.temp_list),1)}°F"
+            + f"Avg: {round(sum(self.temp_list)/len(self.temp_list), 1)}°F\n"
+            + f"Min: {round(min(self.temp_list), 1)}°F\n"
+            + f"Max: {round(max(self.temp_list), 1)}°F"
         )
 
         self.humid_stats.configure(
             text="Humidity Statistics\n"
-            + f"Avg: {round(sum(self.humidity_list)/len(self.humidity_list),1)}%\n"
-            + f"Min: {round(min(self.humidity_list),1)}%\n"
-            + f"Max: {round(max(self.humidity_list),1)}%"
+            + f"Avg: {round(sum(self.humidity_list)/len(self.humidity_list), 1)}%\n"
+            + f"Min: {round(min(self.humidity_list), 1)}%\n"
+            + f"Max: {round(max(self.humidity_list), 1)}%"
         )
 
     def update_forecast_raw_data_tab(self) -> None:
-        """Called from show_results, it creates a textbox and populates it with the raw forecast data in json format for the user to see the raw data that was
-            received from the API.
+        """Called from `show_results`. Creates a textbox and populates it with the
+        raw forecast data (JSON) received from the API so the user can inspect it.
         Args:
             None
 
@@ -824,9 +837,11 @@ class WeatherAppGUI(ctk.CTk):
         )
 
     def update_plots(self) -> None:
-        """Called from show_results, it checks if the plot image files exist and if they do, it creates image labels to display the plots on their respective tabs.
-             It also displays a message above the plots indicating how many records were fetched from the NOAA stations and how many unique days of data
-             are represented in those records, to provide context for the plots. The message is displayed on all three plot tabs.
+        """Called from `show_results`. Checks for plot image files and creates image
+        labels to display the plots on their respective tabs. Also displays a
+        message above the plots indicating how many records were fetched and how
+        many unique days of data are represented; the message appears on all
+        three plot tabs.
         Args:
             None
 
@@ -862,9 +877,11 @@ class WeatherAppGUI(ctk.CTk):
                         linewidth=1.5,
                     )
                     self.std_subplot.legend(loc="upper right")
-                    self.std_subplot.set_title(
-                        f"Temperature and Humidity Over Time (ZIP {self.backend.zip_code})"
+                    title_text = (
+                        f"Temperature and Humidity Over Time (ZIP "
+                        f"{self.backend.zip_code})"
                     )
+                    self.std_subplot.set_title(title_text)
                     self.std_subplot.set_xlabel("Observation Time")
                     self.std_subplot.set_ylabel("Value")
                     self.std_subplot.xaxis.set_major_locator(
@@ -886,9 +903,11 @@ class WeatherAppGUI(ctk.CTk):
                         boxprops=dict(facecolor="lightblue", color="blue"),
                         medianprops=dict(color="red"),
                     )
-                    self.box_subplot.set_title(
-                        f"Temperature and Humidity Distribution (ZIP {self.backend.zip_code})"
+                    title_text = (
+                        f"Temperature and Humidity Distribution (ZIP "
+                        f"{self.backend.zip_code})"
                     )
+                    self.box_subplot.set_title(title_text)
                     self.box_canvas.draw()
                     # self.box_msg_label.configure(text=message)  # Update the message
                     # above the box plot

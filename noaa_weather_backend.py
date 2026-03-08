@@ -1,38 +1,44 @@
-"""
-NOAA Weather Data Analyzer
-==========================
+"""NOAA Weather Data Analyzer
+=============================
 
 Author:    Rowland Holden
 Date:      Feb 17, 2026 (extended version)
 Course:    CEIS 101 - Final Project (Enhanced)
-Purpose:   Fetch recent weather observations from NOAA's API for Everett, WA (ZIP 98204),
-           process temperature (converted to °F) and relative humidity data over the
-           past ~10 days, count unique cloudy days, generate visualizations, and
-           compute basic statistics.
 
-Features:
-- Retrieves weather observations using noaa_sdk
-- Converts temperatures from °C to °F
-- Tracks unique cloudy days using a closure
-- Filters out missing (None) values
-- Creates three plots: time-series line plot, box plot, temperature histogram
-- Prints raw observations, cloudy day count, and detailed statistics
-- Includes timestamps on the main plot for better readability - can't read the timestamps though, do much data crammed in
-- Basic error handling for API failures
+Purpose
+-------
+Fetch recent weather observations from NOAA's API for Everett, WA (ZIP 98204),
+convert temperatures to °F, process relative humidity over the past ~10 days,
+count unique cloudy days, generate visualizations, and compute basic
+statistics.
 
-Output Files:
-- weather.png          : Temperature & Humidity over time
-- boxplot.png          : Box plot comparison
-- temperature_histogram.png : Temperature distribution
+Features
+--------
+- Retrieves observations via `noaa_sdk`.
+- Converts temperatures from °C to °F.
+- Tracks unique cloudy days using a closure.
+- Filters out missing (None) values.
+- Produces three plots: time-series, box plot, and histogram.
+- Prints raw observations, cloudy-day count, and statistics.
+- Basic error handling for API failures.
 
-Requirements:
+Output Files
+------------
+- `weather.png`: Temperature & humidity time-series.
+- `boxplot.png`: Box plot comparison.
+- `temperature_histogram.png`: Temperature distribution.
+
+Requirements
+------------
 - Python 3.x
 - noaa_sdk (pip install noaa-sdk)
 - matplotlib
 
-Note: The NOAA API returns all available observations in the requested time window
-    (typically several hundred for ~10 days, depending on station reporting frequency—e.g., hourly or more frequent).
-    Not guaranteed to cover full 10 days if data is sparse.
+Note
+----
+The NOAA API returns all observations in the requested window (typically
+several hundred for ~10 days). Results are not guaranteed to cover a full 10
+days if station reporting is sparse.
 """
 
 from noaa_sdk import noaa
@@ -47,7 +53,8 @@ import sys
 import gc
 
 
-class RowlandNoaaWeather:  # Named as such to ensure it will never conflict with another class name.
+class RowlandNoaaWeather:
+    """Primary application class for NOAA weather analysis."""
 
     # ****************** METHODS
 
@@ -58,7 +65,8 @@ class RowlandNoaaWeather:  # Named as such to ensure it will never conflict with
             None
 
         Returns:
-            Dict[str, Any]: Parsed JSON for forecast periods for the configured ZIP code.
+            Dict[str, Any]: Parsed JSON for forecast periods for the configured
+                ZIP code.
 
         Examples:
             >>> forecast_data = self.get_forecast_data()
@@ -174,8 +182,7 @@ class RowlandNoaaWeather:  # Named as such to ensure it will never conflict with
     #     return temp_list, humidity_list
 
     def print_data(self, weather: Dict[str, Any]) -> None:
-        """Prints the current raw records time stamp, temperature, relative humidity and
-        description(cloudy, clear, rainy etc.)
+        """Print timestamp, temperature, humidity and textual description.
 
             Args:
                 weather: the raw data record to work with
@@ -198,10 +205,9 @@ class RowlandNoaaWeather:  # Named as such to ensure it will never conflict with
         )
 
     def extract_date(self, weather: Dict[str, Any]) -> str:
-        """Gets the date portion of the timestamp from the current record of the raw
-        data, used to track cloudy days. we don't want to count the same cloudy day
-        twice and the raw data has many records involving different readings on the same
-        day.
+        """Return the date portion of a record timestamp for cloudy-day tracking.
+        This prevents counting multiple records from the same date as separate
+        cloudy days.
 
             Args:
                 weather: the raw data record to work with
@@ -212,9 +218,9 @@ class RowlandNoaaWeather:  # Named as such to ensure it will never conflict with
             Examples:
                 >>> cur_date = extract_date(weather)
         """
-        pos = weather["timestamp"].find(
-            "T"
-        )  # In the raw data "T" indicates the beginning of the time portion of the time stamp
+        # In the raw data 'T' separates the date and time portions of the
+        # ISO8601 timestamp
+        pos = weather["timestamp"].find("T")
         new_date = weather["timestamp"][:pos]
 
         return new_date
@@ -226,7 +232,8 @@ class RowlandNoaaWeather:  # Named as such to ensure it will never conflict with
             None
 
         Returns:
-            Callable: A tracking function accepting (weather, current_count) and returning updated cloudy day count.
+            Callable: Tracking function that accepts (weather, current_count) and
+            returns updated cloudy-day count.
 
         Examples:
             >>> tracker = self.get_cloudy_days()
@@ -282,7 +289,8 @@ class RowlandNoaaWeather:  # Named as such to ensure it will never conflict with
             weather_data: Iterable of NOAA observation records.
 
         Returns:
-            tuple[int, list, list, defaultdict]: (cloudy_days, temp_list, humidity_list, timestamps_for_plots)
+            tuple[int, list, list, defaultdict]:
+                (cloudy_days, temp_list, humidity_list, timestamps_for_plots)
 
         Examples:
             >>> cd, temps, hums, stamps = self.collect_and_print_data(weather_data)
@@ -304,39 +312,28 @@ class RowlandNoaaWeather:  # Named as such to ensure it will never conflict with
             # humidity_list)
 
             if weather["temperature"]["value"] is not None:
-                timestamps_for_plots["temp"].append(
-                    weather["timestamp"]
-                )  # We only want to add timestamps that have valid temp data for plotting
-                temp_list.append(
-                    weather["temperature"]["value"]
-                )  # We need to append the temp value here as well because we are filtering out None values in the clean_data function, so we need to make sure the lists are the same length as the timestamps for plotting. We could do this in the clean_data function but it is easier to do it here.
+                # Add timestamp and temp value only when temp data is valid
+                timestamps_for_plots["temp"].append(weather["timestamp"])
+                temp_list.append(weather["temperature"]["value"])
 
             if weather["relativeHumidity"]["value"] is not None:
-                timestamps_for_plots["humidity"].append(
-                    weather["timestamp"]
-                )  # We only want to add timestamps that have valid humidity data for plotting
-                humidity_list.append(
-                    weather["relativeHumidity"]["value"]
-                )  # We need to append the humidity value here as well because we are filtering out None values in the clean_data function, so we need to make sure the lists are the same length as the timestamps for plotting. We could do this in the clean_data function but it is easier to do it here.
+                # Add timestamp and humidity value only when humidity data is valid
+                timestamps_for_plots["humidity"].append(weather["timestamp"])
+                humidity_list.append(weather["relativeHumidity"]["value"])
 
-            self.cloudy_days = cloudy_days_func(
-                weather, self.cloudy_days
-            )  # This is a closure function called get_cloudy_days
+            # Update cloudy day count via closure returned by get_cloudy_days
+            self.cloudy_days = cloudy_days_func(weather, self.cloudy_days)
 
             self.print_data(weather)
 
         print()  # Blank line between raw data and processed number info
         print(
-            (
-                f"processed {len(temp_list)}"
-                f" valid temperatures found in Noaa observations for zip code {self.zip_code}"
-            )
+            f"processed {len(temp_list)} valid temperatures found in "
+            f"Noaa observations for zip code {self.zip_code}"
         )
         print(
-            (
-                f"processed {len(humidity_list)}"
-                f" valid humidity values found in Noaa observations for zip code {self.zip_code}"
-            )
+            f"processed {len(humidity_list)} valid humidity values found in "
+            f"Noaa observations for zip code {self.zip_code}"
         )
 
         return self.cloudy_days, temp_list, humidity_list, timestamps_for_plots
@@ -348,7 +345,8 @@ class RowlandNoaaWeather:  # Named as such to ensure it will never conflict with
             None
 
         Returns:
-            tuple[list, list, defaultdict]: (temp_list, humidity_list, timestamps_for_plots)
+            tuple[list, list, defaultdict]:
+                (temp_list, humidity_list, timestamps_for_plots)
 
         Examples:
             >>> temps, hums, stamps = self.init_weather_data()
@@ -371,13 +369,13 @@ class RowlandNoaaWeather:  # Named as such to ensure it will never conflict with
         humidity_list: list,
         timestamps_for_plots: defaultdict[str, list[str]],
     ) -> None:
-        """Generate and save the time-series, boxplot and histogram images.
+        """Generate and save time-series, boxplot and histogram images.
 
         Args:
-            temp_list: temperatures that were in the raw data
-            humidity_list: humidity values that were in the raw data
-            timestamps_for_plots: the dict of lists that contains the timestamps for the temp and
-                humidity data that we want to plot
+            temp_list: temperatures from the raw data.
+            humidity_list: humidity values from the raw data.
+            timestamps_for_plots: dict-of-lists containing timestamps for the
+                temp and humidity values used for plotting.
 
         Returns:
             None
@@ -395,15 +393,15 @@ class RowlandNoaaWeather:  # Named as such to ensure it will never conflict with
         humidity_list: list,
         timestamps_for_plots: defaultdict[str, list[str]],
     ) -> None:
-        """Creates a standard plot using the matplotlib.pyplot class. Also saves the
-        plot as a png file While we asked for 10 days of data, the noaa API will only
-        return what it has, so we may not get 10 days.
+        """Create the main time-series plot and save it as a PNG file.
+
+        Note: The NOAA API may not return a full 10 days of data depending on
+        station reporting frequency.
 
             Args:
                 temp_list: temperatures that were in the raw data
                 humidity_list: humidity values that were in the raw data
-                timestamps_for_plots: the dict of lists that contains the timestamps for the temp and
-                    humidity data that we want to plot
+                timestamps_for_plots: dict of lists with timestamps to plot
 
             Returns:
                 None
@@ -593,8 +591,8 @@ class RowlandNoaaWeather:  # Named as such to ensure it will never conflict with
                 temp and humidity data that we want to plot
 
         Returns:
-            timestamps_for_plots: the same dict of lists but with the timestamps converted to
-                datetime objects for better plotting
+           timestamps_for_plots: the same dict but with timestamps converted to
+                datetime objects for plotting
 
         Examples:
             >>> self.convert_time_stamps(timestamps_for_plots)
@@ -642,9 +640,9 @@ class RowlandNoaaWeather:  # Named as such to ensure it will never conflict with
         # generating the
         # lists for the plots.
         # temp_list, humidity_list = self.clean_data(temp_list, humidity_list)
-        timestamps_for_plots = self.convert_time_stamps(
-            timestamps_for_plots
-        )  # We need to convert the time stamps to datetime objects for plotting, we can do this in the create_standard function but it is easier to do it here so we only have to do it once and we can use the converted timestamps for all the plots if we want to.
+        # Convert timestamps to datetime objects for plotting. Doing it here keeps
+        # converted values available for all plot routines.
+        timestamps_for_plots = self.convert_time_stamps(timestamps_for_plots)
         self.create_plots(temp_list, humidity_list, timestamps_for_plots)
         self.calculate_and_print_statistics(temp_list, humidity_list)
 
