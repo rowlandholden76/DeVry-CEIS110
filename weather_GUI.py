@@ -48,7 +48,6 @@ Methods:
     clear_previous_data(): Remove all data widgets when resetting for new ZIP code
     start_fetch_thread(): Initiate data fetching in separate thread
     get_data(): Fetch and process weather data from backend
-    get_unique_days(): Calculate number of unique days in dataset
     print_records_message(): Generate user-friendly data summary message
     run_analysis(): Execute data fetching and analysis (runs in thread)
     populate_forecast(): Populate forecast tab with API data
@@ -604,28 +603,6 @@ class WeatherAppGUI(ctk.CTk):
             self.backend.init_weather_data()
         )
 
-    def get_unique_days(self) -> int:
-        """Calulates the number of unique days represented in the timestamps of the noaa
-        data records. This is used to provide more accurate information about how many
-        days of data were fetched. This information is displyed to the user in the GUI
-        in the statistics tab.
-
-        Args:
-            None
-
-        Returns:
-            int: Number of unique days represented in the timestamps of the
-                NOAA data records.
-
-        Examples:
-            get_unique_days()
-        """
-        unique_days = set()
-        for timestamp in self.timestamps:
-            day = timestamp.split("T")[0]  # Extract the date part (YYYY-MM-DD)
-            unique_days.add(day)
-        return len(unique_days)
-
     def print_records_message(self) -> str:
         """Prints a uuser-friendly message indicating how many records were fetched from
         the NOAA stations and how many unique days of data are represented in those
@@ -641,7 +618,7 @@ class WeatherAppGUI(ctk.CTk):
             print_records_message()
         """
         num_records = len(self.noaa_data)
-        unique_days = self.get_unique_days()
+        unique_days = self.backend.get_unique_days(self.timestamps)
         message = (
             f"Fetched {num_records} records across {unique_days}"
             f" days from NOAA stations for ZIP code {self.backend.zip_code}."
@@ -791,7 +768,7 @@ class WeatherAppGUI(ctk.CTk):
         self.records_label.configure(text=message)
         self.cloudy_label.configure(
             text=(
-                f"Cloudy days in last {self.get_unique_days()} days: "
+                f"Cloudy days in last {self.backend.get_unique_days(self.timestamps)} days: "
                 f"{self.backend.cloudy_days}"
             )
         )

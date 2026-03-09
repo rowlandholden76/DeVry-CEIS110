@@ -324,19 +324,31 @@ class RowlandNoaaWeather:
             # Update cloudy day count via closure returned by get_cloudy_days
             self.cloudy_days = cloudy_days_func(weather, self.cloudy_days)
 
-            self.print_data(weather)
-
-        print()  # Blank line between raw data and processed number info
-        print(
-            f"processed {len(temp_list)} valid temperatures found in "
-            f"Noaa observations for zip code {self.zip_code}"
-        )
-        print(
-            f"processed {len(humidity_list)} valid humidity values found in "
-            f"Noaa observations for zip code {self.zip_code}"
-        )
+            #self.print_data(weather)
 
         return self.cloudy_days, temp_list, humidity_list, timestamps_for_plots
+
+    def get_unique_days(self, timestamps: list) -> int:
+        """Calulates the number of unique days represented in the timestamps of the noaa
+        data records. This is used to provide more accurate information about how many
+        days of data were fetched. This information is displyed to the user in the GUI
+        in the statistics tab.
+
+        Args:
+            None
+
+        Returns:
+            int: Number of unique days represented in the timestamps of the
+                NOAA data records.
+
+        Examples:
+            get_unique_days()
+        """
+        unique_days = set()
+        for timestamp in timestamps:
+            day = timestamp.split("T")[0]  # Extract the date part (YYYY-MM-DD)
+            unique_days.add(day)
+        return len(unique_days)
 
     def init_weather_data(self) -> tuple[list, list, defaultdict[str, list[str]]]:
         """Fetch and process observations, returning lists and timestamps for plots.
@@ -357,9 +369,12 @@ class RowlandNoaaWeather:
             self.collect_and_print_data(weather_data)
         )
 
+        unique_days = self.get_unique_days(timestamps_for_plots)
+        print()
+        print(f"Number of days in historical data: {unique_days}")
         # Lets put a blank line between raw data and readable data
         print()
-        print(f"Number of cloudy days in the last 10 days: {self.cloudy_days}")
+        print(f"Number of cloudy days in the last {unique_days} days: {self.cloudy_days}")
 
         return temp_list, humidity_list, timestamps_for_plots
 
@@ -561,7 +576,8 @@ class RowlandNoaaWeather:
         """
 
         print()  # Blank line before statistics
-        print("Weather Statistics")
+        print(f"Historical Weather Statistics for the last {self.cloudy_days} days")
+        print("---------------------------------------------------------------------------------")
         # Print temp data
         self.print_temp_stats(temp_list)
         print()  # Blank line between temp and humidity
@@ -615,6 +631,57 @@ class RowlandNoaaWeather:
 
         return timestamps_for_plots
 
+    def print_forecast_data(self, forecast_data: Dict[str, Any]) -> None:
+        """Print the forecast periods retrieved from the National Weather Service API.
+
+        Args:
+            forecast_data: Dict containing forecast periods for the configured ZIP code.
+
+        Returns:
+            None
+
+        Examples:
+            >>> self.print_forecast_data(forecast_data)
+        """
+        print()  # Blank line before forecast data
+        print("Forecast:")
+        print("---------------------------------------------------------------------------------")
+
+        for period in forecast_data:
+            chance = (
+                period["probabilityOfPrecipitation"]["value"] or 0
+            )  # default to 0 if None
+
+            day = period["name"]
+            temp = f"{period['temperature']}°F"
+            desc = period["shortForecast"]
+
+            line = f"{day:<17} {temp:<18} {desc:<45} {chance}%\n"
+            print(line)
+
+    def print_record_stats(self, temp_list: list, humidity_list: list) -> None:
+        """Print record high and low temperatures for the configured ZIP code.
+
+        Args:
+            temp_list: List of temperature values.
+            humidity_list: List of humidity values.
+
+        Returns:
+            None
+        Examples:
+            >>> self.print_record_stats()
+        """
+        print()  # Blank line between raw data and processed number info
+        print(
+            f"processed {len(temp_list)} valid temperatures found in "
+            f"Noaa observations for zip code {self.zip_code}"
+        )
+        print(
+            f"processed {len(humidity_list)} valid humidity values found in "
+            f"Noaa observations for zip code {self.zip_code}"
+        )
+        print() 
+
     def main(self) -> None:
         """Main entry point for the program; orchestrates fetch, process and plot steps.
 
@@ -645,6 +712,8 @@ class RowlandNoaaWeather:
         timestamps_for_plots = self.convert_time_stamps(timestamps_for_plots)
         self.create_plots(temp_list, humidity_list, timestamps_for_plots)
         self.calculate_and_print_statistics(temp_list, humidity_list)
+        self.print_forecast_data(self.get_forecast_data())
+        self.print_record_stats(temp_list, humidity_list)
 
     def __init__(self, zip_entry: str = "98204") -> None:
         """Called when creating the `RowlandNoaaWeather` instance.
