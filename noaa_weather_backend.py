@@ -734,7 +734,15 @@ class RowlandNoaaWeather:
 
 # ********************* SCRIPT
 
-if __name__ == "__main__":
+def main() -> None:
+    """Module-level entry point to run the backend as a script or console command.
 
+    This wrapper allows packaging tools to expose the backend via
+    `console_scripts` by pointing to `noaa_weather_backend:main`.
+    """
     noaa_weather = RowlandNoaaWeather()
     noaa_weather.main()
+
+
+if __name__ == "__main__":
+    main()

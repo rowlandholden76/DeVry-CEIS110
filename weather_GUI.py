@@ -1038,3 +1038,14 @@ class WeatherAppGUI(ctk.CTk):
 if __name__ == "__main__":
     app = WeatherAppGUI()
     app.mainloop()
+
+
+# Module-level entry point for packaging/console_scripts
+def main() -> None:
+    """Start the Weather GUI application (console entry point).
+
+    This function allows packaging tools to create a `console_scripts`
+    entry point that launches the GUI.
+    """
+    app = WeatherAppGUI()
+    app.mainloop()
