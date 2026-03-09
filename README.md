@@ -41,3 +41,49 @@ A second leak was also discovered: a thread leak. By switching from standard thr
 - The leak originated when opening plot files (GDI objects)
 
 **Solution:** Rendering plots directly in the GUI instead of opening saved files, and changing from standard threading to a thread pool eliminated the leak. Current performance shows stable memory (167MB ±3MB) after many fetches.
+
+
+## How to run locally
+
+Quick steps to run the GUI and backend from this repository (Windows):
+
+1. Create and activate a virtual environment (from project root):
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
+
+2. Install dependencies:
+
+```powershell
+.venv\Scripts\python.exe -m pip install --upgrade pip
+.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+
+3. Run the GUI:
+
+```powershell
+.venv\Scripts\python.exe -m weather_GUI
+```
+
+4. Run the backend as a script (optional):
+
+```powershell
+.venv\Scripts\python.exe -m noaa_weather_backend
+```
+
+Notes:
+- The project includes `requirements.txt` and `setup.cfg` for development. We are not publishing to PyPI yet.
+- To install the package for development (editable):
+
+```powershell
+.venv\Scripts\python.exe -m pip install -e .
+```
+
+To uninstall the editable install:
+
+```powershell
+.venv\Scripts\python.exe -m pip uninstall weather-analyzer
+```
+
